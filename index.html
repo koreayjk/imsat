@@ -172,6 +172,7 @@
       <span class="muted" id="whoami" style="align-self:center;margin-right:auto"></span>
       <button class="btn btn-ghost" style="flex:0 0 auto;padding:7px 14px;font-size:13px" onclick="signOut()">로그아웃</button>
     </div>
+    <div id="draftBanner"></div>
     <div class="card">
       <div style="display:flex;gap:10px;align-items:flex-end">
         <div style="flex:1">
@@ -392,7 +393,65 @@ function show(view){
   });
   window.scrollTo(0,0);
 }
-function showDashboard(){ show("dashboard"); loadStudents(); }
+function showDashboard(){ show("dashboard"); loadStudents(); renderDraftBanner(); }
+
+// ---------- 작업 임시 저장 (localStorage) ----------
+const DRAFT_KEY = "imsat_draft_v1";
+function saveDraft(stage){
+  if(!currentStudent) return;
+  try{
+    const exam = stage==='verify' ? (document.getElementById('sExamName').value||"") : (document.getElementById('examName').value||"");
+    const sc   = stage==='verify' ? (document.getElementById('sScore').value||"")   : (document.getElementById('score').value||"");
+    localStorage.setItem(DRAFT_KEY, JSON.stringify({
+      studentId: currentStudent.id, studentName: currentStudent.name,
+      stage, section: (stage==='verify'? smartSection : currentSection),
+      examName: exam, score: sc,
+      verifyRows, formQuestions, savedAt: Date.now()
+    }));
+  }catch(_e){}
+}
+function loadDraft(){ try{ return JSON.parse(localStorage.getItem(DRAFT_KEY)||"null"); }catch(_e){ return null; } }
+function clearDraft(){ try{ localStorage.removeItem(DRAFT_KEY); }catch(_e){} renderDraftBanner(); }
+function hasDraftContent(d){
+  if(!d) return false;
+  return (d.verifyRows && d.verifyRows.length) || (d.formQuestions && d.formQuestions.length);
+}
+function renderDraftBanner(){
+  const box=document.getElementById("draftBanner"); if(!box) return;
+  const d=loadDraft();
+  if(!hasDraftContent(d)){ box.innerHTML=""; return; }
+  const when=new Date(d.savedAt).toLocaleString("ko-KR",{month:"short",day:"numeric",hour:"2-digit",minute:"2-digit"});
+  box.innerHTML='<div class="card" style="background:var(--amber-bg);border-color:#fed7aa;display:flex;align-items:center;gap:12px;flex-wrap:wrap">'
+    +'<div style="flex:1;min-width:180px"><div style="font-weight:800;color:#b45309;font-size:14px">작성 중이던 진단이 있습니다</div>'
+    +'<div class="muted">학생: '+esc(d.studentName)+' · '+esc(when)+' 저장</div></div>'
+    +'<button class="btn btn-primary" style="width:auto;padding:8px 16px" onclick="resumeDraft()">이어서 작업</button>'
+    +'<button class="btn btn-ghost" style="width:auto;padding:8px 16px" onclick="clearDraft()">삭제</button></div>';
+}
+function resumeDraft(){
+  const d=loadDraft(); if(!hasDraftContent(d)) return;
+  currentStudent={ id:d.studentId, name:d.studentName };
+  verifyRows=d.verifyRows||[];
+  formQuestions=d.formQuestions||[];
+  document.getElementById("stuName").textContent=d.studentName+" 학생";
+  if(d.stage==='verify'){
+    smartSection=d.section||'rw';
+    document.querySelectorAll("#sSectionSeg button").forEach(b=>b.classList.toggle("on", b.dataset.sec===smartSection));
+    document.getElementById('sExamName').value=d.examName||"";
+    document.getElementById('sScore').value=d.score||"";
+    renderVerify();
+    document.getElementById('smartStep1').classList.add('hide');
+    document.getElementById('smartStep3').classList.add('hide');
+    document.getElementById('smartStep2').classList.remove('hide');
+    show('smart');
+  }else{
+    currentSection=d.section||'rw'; syncSectionSeg();
+    document.getElementById('examName').value=d.examName||"";
+    document.getElementById('score').value=d.score||"";
+    document.getElementById('formErr').innerHTML='<div class="card" style="background:var(--amber-bg);border-color:#fed7aa;color:#b45309;font-size:13px;padding:11px 14px;margin-bottom:14px">이어서 작업 중입니다. 사진은 복구되지 않지만, 채점·입력한 내용은 그대로입니다.</div>';
+    renderForm();
+    show('form');
+  }
+}
 function showForm(){
   formQuestions = [emptyQ()];
   currentSection = "rw";
@@ -612,7 +671,7 @@ function renderForm(){
       <textarea rows="4" oninput="setQ(${i},'content',this.value)" placeholder="여기에 문제 전체를 붙여넣으세요. 함정 분석은 이 내용을 기반으로 합니다.">${esc(q.content)}</textarea>
     </div>`).join("");
 }
-function setQ(i,f,v){ formQuestions[i][f]=v; if(f==='student'||f==='correct') renderForm(); }
+function setQ(i,f,v){ formQuestions[i][f]=v; saveDraft('form'); if(f==='student'||f==='correct') renderForm(); }
 function addQuestion(){ formQuestions.push(emptyQ()); renderForm(); }
 function removeQuestion(i){ if(formQuestions.length===1) return; formQuestions.splice(i,1); renderForm(); }
 
@@ -762,6 +821,7 @@ async function runExtract(){
     }
 
     renderVerify();
+    saveDraft('verify');
     document.getElementById("smartStep1").classList.add("hide");
     document.getElementById("smartStep2").classList.remove("hide");
     window.scrollTo(0,0);
@@ -794,9 +854,9 @@ function renderVerify(){
       <tbody>${rows}</tbody>
     </table>`;
 }
-function setVerify(i,f,v){ verifyRows[i][f]=(f==='number'?v:v.toUpperCase()); renderVerify(); }
-function addVerifyRow(){ verifyRows.push({number:"",student:"",correct:""}); renderVerify(); }
-function removeVerifyRow(i){ verifyRows.splice(i,1); renderVerify(); }
+function setVerify(i,f,v){ verifyRows[i][f]=(f==='number'?v:v.toUpperCase()); saveDraft('verify'); renderVerify(); }
+function addVerifyRow(){ verifyRows.push({number:"",student:"",correct:""}); saveDraft('verify'); renderVerify(); }
+function removeVerifyRow(i){ verifyRows.splice(i,1); saveDraft('verify'); renderVerify(); }
 
 function confirmVerify(){
   const errBox=document.getElementById("verifyErr"); errBox.innerHTML="";
@@ -818,6 +878,7 @@ function confirmVerify(){
     .map(q=>'<span class="pill pill-rose">'+esc(q.number)+'</span>').join("");
   document.getElementById("smartStep2").classList.add("hide");
   document.getElementById("smartStep3").classList.remove("hide");
+  saveDraft('form');
   window.scrollTo(0,0);
 }
 
@@ -880,6 +941,7 @@ async function extractContent(){
     formQuestions.forEach(q=>{ const t=parsed[q.number]; if(t && String(t).trim()){ q.content=String(t).trim(); filled++; } });
     if(filled===0) throw new Error("페이지에서 해당 문항을 찾지 못했습니다. 틀린 문항이 나온 페이지가 맞는지, 사진이 선명한지 확인하세요.");
 
+    saveDraft('form');
     goToForm('문제 내용 '+filled+'/'+formQuestions.length+'문항 자동 추출 완료. <b>내용을 확인·수정</b>한 뒤 진단을 시작하세요. (추출 안 된 문항은 직접 붙여넣으면 됩니다.)');
   }catch(e){
     errBox.innerHTML='<div class="err">추출에 실패했습니다.<br><span class="muted">'+esc(String(e.message||e))+'</span></div>';
@@ -937,6 +999,7 @@ async function runAnalysis(){
     }));
     if(qRows.length) await sb.from("diagnostic_questions").insert(qRows);
 
+    clearDraft();
     openReport(dRow.id);
   }catch(e){
     errBox.innerHTML='<div class="err">분석 중 오류가 발생했습니다. 잠시 후 다시 시도하거나 문제 내용을 확인하세요.<br><span class="muted">'+esc(String(e.message||e))+'</span></div>';
@@ -1139,7 +1202,7 @@ async function signup(){
     msg.innerHTML='<div class="card" style="background:var(--teal-bg);border-color:#99f6e4;color:#0f766e;font-size:13px;padding:10px 12px;margin:0">가입되었습니다. 이메일 확인이 켜져 있으면 메일의 링크를 누른 뒤 로그인하세요.</div>';
   }
 }
-async function signOut(){ await sb.auth.signOut(); }
+async function signOut(){ clearDraft(); await sb.auth.signOut(); }
 
 // Edge Function 호출용 헤더: 로그인 사용자 토큰을 보냄 (함수가 검증)
 async function fnHeaders(){
