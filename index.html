@@ -151,8 +151,27 @@
 
   <div id="configWarn" class="config-warn hide"></div>
 
+  <!-- ============ 교사 로그인 ============ -->
+  <section id="view-auth" class="hide">
+    <div class="card" style="max-width:380px;margin:48px auto 0">
+      <div class="eyebrow" style="justify-content:center;margin-bottom:14px"><span class="rule"></span>교사 로그인<span class="rule"></span></div>
+      <label class="fld">이메일</label>
+      <input id="authEmail" type="email" placeholder="teacher@example.com" autocomplete="username" />
+      <label class="fld" style="margin-top:10px">비밀번호</label>
+      <input id="authPass" type="password" placeholder="6자 이상" autocomplete="current-password" />
+      <div id="authMsg" style="margin-top:10px"></div>
+      <button class="btn btn-primary" style="margin-top:12px" onclick="login()">로그인</button>
+      <button class="btn btn-ghost" style="margin-top:8px" onclick="signup()">회원가입</button>
+      <div class="muted" style="margin-top:12px;text-align:center">학원 선생님 계정으로 로그인하세요.<br>본인이 등록한 학생만 보입니다.</div>
+    </div>
+  </section>
+
   <!-- ============ 대시보드 ============ -->
-  <section id="view-dashboard">
+  <section id="view-dashboard" class="hide">
+    <div class="btn-row no-print" style="margin-bottom:14px;justify-content:flex-end">
+      <span class="muted" id="whoami" style="align-self:center;margin-right:auto"></span>
+      <button class="btn btn-ghost" style="flex:0 0 auto;padding:7px 14px;font-size:13px" onclick="signOut()">로그아웃</button>
+    </div>
     <div class="card">
       <div style="display:flex;gap:10px;align-items:flex-end">
         <div style="flex:1">
@@ -988,8 +1007,47 @@ function renderParentReport({ d, qs, allDiags }){
 // ---------- util ----------
 function esc(s){ return String(s==null?"":s).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;"); }
 
+// ---------- 인증 (교사 로그인) ----------
+function showAuth(){
+  ["dashboard","student","smart","form","report"].forEach(v=>document.getElementById("view-"+v).classList.add("hide"));
+  document.getElementById("view-auth").classList.remove("hide");
+  window.scrollTo(0,0);
+}
+function enterApp(session){
+  document.getElementById("view-auth").classList.add("hide");
+  const email = session && session.user ? session.user.email : "";
+  document.getElementById("whoami").textContent = email ? ("로그인: "+email) : "";
+  showDashboard();
+}
+async function login(){
+  const email=document.getElementById("authEmail").value.trim();
+  const pass=document.getElementById("authPass").value;
+  const msg=document.getElementById("authMsg"); msg.innerHTML="";
+  if(!email||!pass){ msg.innerHTML='<div class="err">이메일과 비밀번호를 입력하세요.</div>'; return; }
+  const { error }=await sb.auth.signInWithPassword({ email, password:pass });
+  if(error) msg.innerHTML='<div class="err">로그인 실패: '+esc(error.message)+'</div>';
+}
+async function signup(){
+  const email=document.getElementById("authEmail").value.trim();
+  const pass=document.getElementById("authPass").value;
+  const msg=document.getElementById("authMsg"); msg.innerHTML="";
+  if(!email||pass.length<6){ msg.innerHTML='<div class="err">이메일과 6자 이상 비밀번호를 입력하세요.</div>'; return; }
+  const { data, error }=await sb.auth.signUp({ email, password:pass });
+  if(error){ msg.innerHTML='<div class="err">가입 실패: '+esc(error.message)+'</div>'; return; }
+  if(!data.session){
+    msg.innerHTML='<div class="card" style="background:var(--teal-bg);border-color:#99f6e4;color:#0f766e;font-size:13px;padding:10px 12px;margin:0">가입되었습니다. 이메일 확인이 켜져 있으면 메일의 링크를 누른 뒤 로그인하세요.</div>';
+  }
+}
+async function signOut(){ await sb.auth.signOut(); }
+async function initAuth(){
+  const { data:{ session } }=await sb.auth.getSession();
+  if(session) enterApp(session); else showAuth();
+  sb.auth.onAuthStateChange((_e,s)=>{ if(s) enterApp(s); else showAuth(); });
+}
+document.getElementById("authPass").addEventListener("keydown",e=>{ if(e.key==="Enter") login(); });
+
 // 시작
-showDashboard();
+if(configured) initAuth();
 </script>
 </body>
 </html>
