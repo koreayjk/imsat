@@ -683,7 +683,7 @@ function parseKeyText(str){
 // 비전 추출 호출
 async function callExtract(b64, media, promptText){
   const res=await fetch(ANALYZE_URL,{ method:"POST",
-    headers:{ "Content-Type":"application/json","Authorization":"Bearer "+SUPABASE_ANON,"apikey":SUPABASE_ANON },
+    headers: await fnHeaders(),
     body:JSON.stringify({ max_tokens:1500, messages:[{ role:"user", content:[
       { type:"image", source:{ type:"base64", media_type:media, data:b64 } },
       { type:"text", text:promptText }
@@ -808,7 +808,7 @@ async function runAnalysis(){
   try{
     const res = await fetch(ANALYZE_URL,{
       method:"POST",
-      headers:{ "Content-Type":"application/json", "Authorization":"Bearer "+SUPABASE_ANON, "apikey":SUPABASE_ANON },
+      headers: await fnHeaders(),
       body:JSON.stringify({ system:sys, messages:[{ role:"user", content:userMsg }] })
     });
     const out = await res.json();
@@ -1039,6 +1039,13 @@ async function signup(){
   }
 }
 async function signOut(){ await sb.auth.signOut(); }
+
+// Edge Function 호출용 헤더: 로그인 사용자 토큰을 보냄 (함수가 검증)
+async function fnHeaders(){
+  const { data:{ session } } = await sb.auth.getSession();
+  const token = session ? session.access_token : SUPABASE_ANON;
+  return { "Content-Type":"application/json", "Authorization":"Bearer "+token, "apikey":SUPABASE_ANON };
+}
 async function initAuth(){
   const { data:{ session } }=await sb.auth.getSession();
   if(session) enterApp(session); else showAuth();
