@@ -287,7 +287,30 @@
       <div id="verifyTable"></div>
       <button class="addbtn no-print" onclick="addVerifyRow()">+ 문항 추가 (누락분)</button>
       <div id="verifyErr"></div>
-      <button class="btn btn-primary" style="margin-top:16px" onclick="confirmVerify()">확인 완료 → 진단 준비 (<span id="wrongCount">0</span>문항)</button>
+      <button class="btn btn-primary" style="margin-top:16px" onclick="confirmVerify()">확인 완료 → 문제 추출 (<span id="wrongCount">0</span>문항)</button>
+    </div>
+
+    <!-- 3단계: 문제집에서 틀린 문항 내용 자동 추출 -->
+    <div id="smartStep3" class="hide">
+      <div class="card" style="background:var(--teal-bg);border-color:#99f6e4">
+        <div style="font-weight:800;color:#0f766e;font-size:14px;margin-bottom:4px">틀린 문항 문제 내용 추출</div>
+        <div class="muted">아래 틀린 문항이 있는 <b>문제집 페이지를 사진으로 올리면</b>, AI가 해당 문항의 지문·문제·선택지를 자동으로 가져옵니다. 여러 장 올릴 수 있어요.</div>
+      </div>
+      <div class="card">
+        <label class="fld">틀린 문항</label>
+        <div id="wrongChips" style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:6px"></div>
+      </div>
+      <div class="card">
+        <label class="fld">문제집 페이지 (사진/이미지 · 여러 장 가능)</label>
+        <label class="drop" id="bookDrop">
+          <input type="file" id="bookFile" accept="image/*" multiple style="display:none" />
+          <span id="bookLabel">클릭해서 페이지 이미지 선택</span>
+        </label>
+        <div id="bookThumbs" style="display:flex;flex-wrap:wrap;gap:8px;margin-top:10px"></div>
+      </div>
+      <div id="extractErr"></div>
+      <button id="extractBtn" class="btn btn-primary" onclick="extractContent()">문제 내용 자동 추출 → 진단 준비</button>
+      <button class="btn btn-ghost" style="margin-top:8px" onclick="skipExtract()">건너뛰기 (직접 입력)</button>
     </div>
   </section>
 
@@ -624,6 +647,8 @@ function showSmart(){
   document.getElementById("keyImage").classList.add("hide");
   document.getElementById("smartStep1").classList.remove("hide");
   document.getElementById("smartStep2").classList.add("hide");
+  document.getElementById("smartStep3").classList.add("hide");
+  bookImgs=[];
   show("smart");
 }
 
@@ -777,14 +802,90 @@ function confirmVerify(){
   const errBox=document.getElementById("verifyErr"); errBox.innerHTML="";
   const wrong=verifyRows.filter(vRowWrong);
   if(wrong.length===0){ errBox.innerHTML='<div class="err">오답으로 표시된 문항이 없습니다. 채점을 확인해 주세요.</div>'; return; }
-  // 기존 진단 폼으로 인계 (번호·학생답·정답 채움, 내용만 입력하면 됨)
+  // 오답 문항을 formQuestions로 준비 (내용은 이후 추출/입력)
   formQuestions=wrong.map(r=>({ number:r.number, student:r.student, correct:r.correct, content:"" }));
   currentSection=smartSection; syncSectionSeg();
   document.getElementById("examName").value=document.getElementById("sExamName").value;
   document.getElementById("score").value=document.getElementById("sScore").value;
-  document.getElementById("formErr").innerHTML='<div class="card" style="background:var(--teal-bg);border-color:#99f6e4;color:#0f766e;font-size:13px;padding:11px 14px;margin-bottom:14px">채점 완료 — 오답 '+wrong.length+'문항이 채워졌습니다. 각 문항의 <b>문제 내용</b>만 붙여넣고 진단을 시작하세요.</div>';
+  // 추출 단계로
+  bookImgs=[];
+  document.getElementById("bookThumbs").innerHTML="";
+  document.getElementById("bookLabel").textContent="클릭해서 페이지 이미지 선택";
+  document.getElementById("bookDrop").classList.remove("has");
+  document.getElementById("bookFile").value="";
+  document.getElementById("extractErr").innerHTML="";
+  document.getElementById("wrongChips").innerHTML=formQuestions
+    .map(q=>'<span class="pill pill-rose">'+esc(q.number)+'</span>').join("");
+  document.getElementById("smartStep2").classList.add("hide");
+  document.getElementById("smartStep3").classList.remove("hide");
+  window.scrollTo(0,0);
+}
+
+// 폼으로 인계 (추출 후 또는 건너뛰기)
+function goToForm(note){
+  document.getElementById("formErr").innerHTML='<div class="card" style="background:var(--teal-bg);border-color:#99f6e4;color:#0f766e;font-size:13px;padding:11px 14px;margin-bottom:14px">'+note+'</div>';
   renderForm();
   show("form");
+}
+function skipExtract(){
+  goToForm('오답 '+formQuestions.length+'문항이 준비됐습니다. 각 문항의 <b>문제 내용</b>을 붙여넣고 진단을 시작하세요.');
+}
+
+// 문제집 페이지 이미지 누적
+let bookImgs=[]; // [{b64, media, dataUrl}]
+document.getElementById("bookFile").addEventListener("change", async e=>{
+  const files=[...e.target.files]; if(!files.length) return;
+  const errBox=document.getElementById("extractErr"); errBox.innerHTML="";
+  for(const f of files){
+    try{ const r=await fileToScaledB64(f); bookImgs.push(r); }
+    catch(err){ errBox.innerHTML='<div class="err">'+esc(err.message)+'</div>'; }
+  }
+  renderBookThumbs();
+  document.getElementById("bookFile").value="";
+});
+function renderBookThumbs(){
+  document.getElementById("bookLabel").textContent = bookImgs.length? ("✓ "+bookImgs.length+"장 추가됨 — 더 추가하려면 클릭") : "클릭해서 페이지 이미지 선택";
+  document.getElementById("bookDrop").classList.toggle("has", bookImgs.length>0);
+  document.getElementById("bookThumbs").innerHTML = bookImgs.map((im,i)=>
+    '<div style="position:relative"><img src="'+im.dataUrl+'" style="height:70px;border-radius:8px;border:1px solid var(--line)"/>'+
+    '<button onclick="removeBookImg('+i+')" style="position:absolute;top:-6px;right:-6px;width:20px;height:20px;border-radius:50%;border:none;background:var(--rose);color:#fff;font-size:12px;cursor:pointer">✕</button></div>'
+  ).join("");
+}
+function removeBookImg(i){ bookImgs.splice(i,1); renderBookThumbs(); }
+
+async function extractContent(){
+  const errBox=document.getElementById("extractErr"); errBox.innerHTML="";
+  if(bookImgs.length===0){ errBox.innerHTML='<div class="err">문제집 페이지 이미지를 최소 1장 올리세요. (또는 “건너뛰기”로 직접 입력)</div>'; return; }
+
+  const btn=document.getElementById("extractBtn"); btn.disabled=true; btn.textContent="추출 중… (20~40초)";
+  try{
+    const labels=formQuestions.map(q=>q.number);
+    const secLabel=SECTION_LABEL[currentSection];
+    const prompt='업로드된 이미지는 SAT 문제집 페이지입니다. 영역: '+secLabel+'. '+
+      '문항 라벨 규칙: "M1·N"=모듈1의 N번, "M2·N"=모듈2의 N번. 페이지의 모듈 표기(Module 1/2)와 문항 번호를 보고 매칭하세요. '+
+      '다음 문항들의 전체 내용(지문/문제 + 선택지 A~D 전체)을 이미지에서 찾아 그대로 추출하세요: '+labels.join(", ")+'. '+
+      '찾지 못한 문항은 빈 문자열. 순수 JSON만 출력(설명·백틱 금지). 키는 위 라벨 그대로: {"'+labels[0]+'":"문항 전체 내용 ..."}';
+
+    const content=[
+      ...bookImgs.map(im=>({ type:"image", source:{ type:"base64", media_type:im.media, data:im.b64 } })),
+      { type:"text", text:prompt }
+    ];
+    const res=await fetch(ANALYZE_URL,{ method:"POST", headers:await fnHeaders(),
+      body:JSON.stringify({ max_tokens:4000, messages:[{ role:"user", content }] }) });
+    const out=await res.json();
+    if(out.error) throw new Error(out.error);
+    const parsed=JSON.parse((out.text||"").replace(/```json|```/g,"").trim());
+
+    let filled=0;
+    formQuestions.forEach(q=>{ const t=parsed[q.number]; if(t && String(t).trim()){ q.content=String(t).trim(); filled++; } });
+    if(filled===0) throw new Error("페이지에서 해당 문항을 찾지 못했습니다. 틀린 문항이 나온 페이지가 맞는지, 사진이 선명한지 확인하세요.");
+
+    goToForm('문제 내용 '+filled+'/'+formQuestions.length+'문항 자동 추출 완료. <b>내용을 확인·수정</b>한 뒤 진단을 시작하세요. (추출 안 된 문항은 직접 붙여넣으면 됩니다.)');
+  }catch(e){
+    errBox.innerHTML='<div class="err">추출에 실패했습니다.<br><span class="muted">'+esc(String(e.message||e))+'</span></div>';
+  }finally{
+    btn.disabled=false; btn.textContent="문제 내용 자동 추출 → 진단 준비";
+  }
 }
 
 // ---------- 분석 실행 ----------
