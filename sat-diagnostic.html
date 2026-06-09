@@ -1,0 +1,979 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>SAT 오답 진단 차트 · 인투유학센터</title>
+<link rel="preconnect" href="https://cdn.jsdelivr.net" />
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+<style>
+  :root{
+    --bg:#f7f8fa; --card:#fff; --ink:#0f172a; --ink2:#334155; --mut:#64748b;
+    --line:#e2e8f0; --amber:#d97706; --amber-bg:#fffbeb; --teal:#0d9488;
+    --teal-bg:#f0fdfa; --rose:#e11d48; --rose-bg:#fff1f2; --navy:#0f172a;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--ink2);
+    font-family:'Pretendard',-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;
+    -webkit-font-smoothing:antialiased}
+  .wrap{max-width:920px;margin:0 auto;padding:28px 20px 80px}
+  header.top{border-bottom:1px solid var(--line);padding-bottom:20px;margin-bottom:24px}
+  .eyebrow{display:flex;align-items:center;gap:8px;font-size:11px;font-weight:700;
+    letter-spacing:.18em;text-transform:uppercase;color:var(--amber);margin-bottom:8px}
+  .eyebrow .rule{width:24px;height:1px;background:var(--amber)}
+  h1{font-size:24px;font-weight:800;color:var(--ink);margin:0}
+  .sub{font-size:13px;color:var(--mut);margin-top:4px}
+  .card{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:20px;margin-bottom:18px}
+  label.fld{display:block;font-size:12px;font-weight:600;color:var(--mut);margin-bottom:5px}
+  input,textarea,select{width:100%;padding:9px 11px;border:1px solid #cbd5e1;border-radius:9px;
+    font-size:14px;font-family:inherit;color:var(--ink);outline:none;background:#fff}
+  input:focus,textarea:focus,select:focus{border-color:var(--amber);box-shadow:0 0 0 3px #fde68a55}
+  textarea{resize:vertical}
+  .grid2{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+  .grid3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px}
+  @media(max-width:640px){.grid2,.grid3{grid-template-columns:1fr}}
+  .btn{display:inline-block;width:100%;padding:13px;border:none;border-radius:12px;
+    font-size:15px;font-weight:700;cursor:pointer;transition:.15s}
+  .btn-primary{background:var(--navy);color:#fff}
+  .btn-primary:hover{background:#1e293b}
+  .btn-primary:disabled{background:#cbd5e1;cursor:not-allowed}
+  .btn-ghost{background:#fff;color:var(--ink2);border:1px solid #cbd5e1}
+  .btn-ghost:hover{background:#f1f5f9}
+  .btn-row{display:flex;gap:10px}
+  .btn-row .btn{flex:1}
+  .seg{display:flex;gap:8px}
+  .seg button{flex:1;padding:9px;border:1px solid #cbd5e1;border-radius:9px;background:#fff;
+    color:var(--mut);font-size:13px;font-weight:600;cursor:pointer}
+  .seg button.on{background:var(--navy);color:#fff;border-color:var(--navy)}
+  .choice{display:flex;gap:5px}
+  .choice button{flex:1;padding:8px 0;border:1px solid #cbd5e1;border-radius:7px;background:#fff;
+    color:var(--mut);font-size:14px;font-weight:700;cursor:pointer}
+  .choice.rose button.on{background:var(--rose);border-color:var(--rose);color:#fff}
+  .choice.teal button.on{background:var(--teal);border-color:var(--teal);color:#fff}
+  .qcard{background:#fff;border:1px solid var(--line);border-radius:12px;padding:16px;margin-bottom:14px}
+  .qhead{display:flex;justify-content:space-between;align-items:center;margin-bottom:12px}
+  .qtag{font-size:12px;font-weight:700;color:var(--amber)}
+  .del{font-size:12px;color:#94a3b8;background:none;border:none;cursor:pointer}
+  .del:hover{color:var(--rose)}
+  .addbtn{width:100%;padding:11px;border:2px dashed #cbd5e1;border-radius:12px;background:none;
+    color:var(--mut);font-size:14px;font-weight:600;cursor:pointer;margin-top:4px}
+  .addbtn:hover{border-color:var(--amber);color:var(--amber)}
+  .err{background:var(--rose-bg);border:1px solid #fecdd3;color:#be123c;padding:11px 14px;
+    border-radius:9px;font-size:13px;margin-bottom:14px}
+  .muted{color:var(--mut);font-size:12px}
+  /* dashboard */
+  .stu-row{display:flex;align-items:center;justify-content:space-between;padding:12px 14px;
+    border:1px solid var(--line);border-radius:11px;background:#fff;margin-bottom:8px;cursor:pointer}
+  .stu-row:hover{border-color:var(--amber)}
+  .stu-row .nm{font-weight:700;color:var(--ink)}
+  .pill{font-size:11px;padding:2px 9px;border-radius:99px;font-weight:700}
+  .pill-rose{background:var(--rose-bg);color:#be123c}
+  .pill-teal{background:var(--teal-bg);color:#0f766e}
+  .pill-amber{background:var(--amber-bg);color:#b45309}
+  .hist-row{display:flex;justify-content:space-between;align-items:center;padding:11px 14px;
+    border:1px solid var(--line);border-radius:10px;background:#fff;margin-bottom:7px;cursor:pointer}
+  .hist-row:hover{background:#f8fafc}
+  /* report */
+  .rpt-head{background:var(--navy);color:#fff;border-radius:14px;padding:22px;margin-bottom:18px}
+  .rpt-head .ey{font-size:11px;letter-spacing:.18em;text-transform:uppercase;color:#fbbf24;margin-bottom:4px}
+  .rpt-head h2{margin:0;font-size:20px;font-weight:800}
+  .rpt-head p{margin:5px 0 0;font-size:13px;color:#cbd5e1}
+  .teacher-box{background:var(--amber-bg);border-left:4px solid var(--amber);border-radius:0 12px 12px 0;
+    padding:18px;margin-bottom:18px}
+  .teacher-box .t{display:flex;align-items:center;gap:7px;font-weight:800;font-size:14px;color:#b45309;margin-bottom:8px}
+  .teacher-box p{margin:0;font-size:14px;line-height:1.65;color:#374151;white-space:pre-line}
+  .h3{font-size:14px;font-weight:800;color:var(--ink2);margin:0 0 12px}
+  .pres{list-style:none;padding:0;margin:0}
+  .pres li{display:flex;gap:12px;font-size:14px;margin-bottom:10px;line-height:1.6;color:var(--ink2)}
+  .pres .n{flex:0 0 22px;height:22px;border-radius:99px;background:var(--teal);color:#fff;
+    font-size:12px;font-weight:700;display:flex;align-items:center;justify-content:center}
+  .diagq{background:#fff;border:1px solid var(--line);border-radius:12px;overflow:hidden;margin-bottom:14px}
+  .diagq .bar{display:flex;justify-content:space-between;align-items:center;padding:11px 16px;
+    background:#f8fafc;border-bottom:1px solid var(--line)}
+  .diagq .bar .qn{font-weight:800;color:var(--ink)}
+  .diagq .bar .tags{display:flex;gap:7px;font-size:11px}
+  .diagrow{display:flex;gap:11px;padding:0 16px;margin:13px 0}
+  .diagrow .vbar{flex:0 0 3px;border-radius:99px}
+  .diagrow .lbl{font-size:11px;font-weight:800;color:var(--mut);margin-bottom:2px}
+  .diagrow .bd{font-size:14px;line-height:1.6;color:var(--ink2)}
+  .signal{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:14px}
+  .sig{display:flex;align-items:center;gap:7px;padding:9px 13px;border-radius:11px;font-size:13px;font-weight:600;border:1px solid}
+  .sig-bad{background:var(--rose-bg);border-color:#fecdd3;color:#be123c}
+  .sig-good{background:var(--teal-bg);border-color:#99f6e4;color:#0f766e}
+  .sig-warn{background:var(--amber-bg);border-color:#fed7aa;color:#b45309}
+  .sig .ic{font-size:15px}
+  .pbox{background:#fff;border:1px solid var(--line);border-radius:12px;padding:18px;margin-bottom:16px}
+  .pbox .ph{font-size:13px;font-weight:800;color:var(--ink2);margin:0 0 8px}
+  .pbox p{margin:0;font-size:14px;line-height:1.7;color:var(--ink2)}
+  .parent-progress{display:flex;align-items:center;gap:10px;font-size:15px;font-weight:700;padding:14px 16px;border-radius:12px;margin-bottom:16px}
+  .pp-up{background:var(--teal-bg);color:#0f766e}
+  .pp-flat{background:#f1f5f9;color:#475569}
+  .drop{display:flex;align-items:center;justify-content:center;min-height:90px;border:2px dashed #cbd5e1;
+    border-radius:12px;background:#f8fafc;color:var(--mut);font-size:14px;font-weight:600;cursor:pointer;text-align:center;padding:14px}
+  .drop:hover{border-color:var(--amber);color:var(--amber)}
+  .drop.has{border-color:var(--teal);color:var(--teal);background:var(--teal-bg)}
+  .preview{display:block;max-width:100%;max-height:240px;margin-top:12px;border-radius:10px;border:1px solid var(--line)}
+  .vtable{width:100%;border-collapse:collapse;background:#fff;border:1px solid var(--line);border-radius:12px;overflow:hidden}
+  .vtable th{font-size:12px;color:var(--mut);font-weight:700;text-align:left;padding:9px 12px;background:#f8fafc;border-bottom:1px solid var(--line)}
+  .vtable td{padding:7px 12px;border-bottom:1px solid #f1f5f9;font-size:14px}
+  .vtable tr.wrong td{background:#fff5f6}
+  .vtable tr.ok td{background:#fff}
+  .vnum{width:64px}
+  .vnum input{padding:5px 7px;text-align:center}
+  .vchoice{display:flex;gap:3px}
+  .vchoice button{width:30px;padding:5px 0;border:1px solid #cbd5e1;border-radius:6px;background:#fff;font-size:13px;font-weight:700;color:var(--mut);cursor:pointer}
+  .vchoice.rose button.on{background:var(--rose);border-color:var(--rose);color:#fff}
+  .vchoice.teal button.on{background:var(--teal);border-color:var(--teal);color:#fff}
+  .vmark{font-size:13px;font-weight:800}
+  .vmark.x{color:var(--rose)}
+  .vmark.o{color:var(--teal)}
+  .vdel{background:none;border:none;color:#cbd5e1;cursor:pointer;font-size:15px}
+  .vdel:hover{color:var(--rose)}
+  .hide{display:none}
+  @media print{ .no-print{display:none!important} body{background:#fff} .wrap{padding:0} }
+  .loading{text-align:center;padding:40px;color:var(--mut)}
+  .spinner{width:30px;height:30px;border:3px solid #e2e8f0;border-top-color:var(--amber);
+    border-radius:50%;animation:spin .8s linear infinite;margin:0 auto 14px}
+  @keyframes spin{to{transform:rotate(360deg)}}
+  .config-warn{background:#fff7ed;border:1px solid #fed7aa;color:#9a3412;padding:14px 16px;
+    border-radius:11px;font-size:13px;margin-bottom:18px;line-height:1.6}
+  code{background:#f1f5f9;padding:1px 6px;border-radius:5px;font-size:12px}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header class="top">
+    <div class="eyebrow"><span class="rule"></span>SAT 오답 진단 시스템</div>
+    <h1>오답 진단 차트</h1>
+    <div class="sub">학생별 진단 누적 · 오답 유형 추세 · 교사용 수업 포인트 — 인투유학센터</div>
+  </header>
+
+  <div id="configWarn" class="config-warn hide"></div>
+
+  <!-- ============ 대시보드 ============ -->
+  <section id="view-dashboard">
+    <div class="card">
+      <div style="display:flex;gap:10px;align-items:flex-end">
+        <div style="flex:1">
+          <label class="fld">새 학생 등록</label>
+          <input id="newStudentName" placeholder="학생 이름 입력 후 Enter" />
+        </div>
+        <button class="btn btn-ghost" style="width:auto;padding:9px 18px" onclick="addStudent()">등록</button>
+      </div>
+    </div>
+
+    <div style="display:flex;justify-content:space-between;align-items:center;margin:6px 2px 10px">
+      <div class="h3" style="margin:0">학생 목록</div>
+      <div class="muted" id="studentCount"></div>
+    </div>
+    <div id="studentList"></div>
+  </section>
+
+  <!-- ============ 학생 상세 (히스토리 + 추세) ============ -->
+  <section id="view-student" class="hide">
+    <div class="btn-row" style="margin-bottom:16px">
+      <button class="btn btn-ghost" style="flex:0 0 auto;padding:9px 16px" onclick="showDashboard()">← 목록</button>
+      <button class="btn btn-primary" onclick="showSmart()">📷 업로드 진단</button>
+      <button class="btn btn-ghost" onclick="showForm()">직접 입력</button>
+    </div>
+
+    <div class="rpt-head" style="margin-bottom:18px">
+      <div class="ey">학생 카드</div>
+      <h2 id="stuName"></h2>
+      <p id="stuMeta"></p>
+    </div>
+
+    <div id="signalBox"></div>
+
+    <div class="card">
+      <div class="h3">오답 유형 추세 <span class="muted" style="font-weight:400">(점수↑ + 오답↓ 가 목표 · 색깔 막대=오답 유형, 선=점수)</span></div>
+      <div id="chartEmpty" class="muted hide" style="text-align:center;padding:30px">진단이 2회 이상 쌓이면 추세가 더 잘 보입니다.</div>
+      <canvas id="trendChart" height="120"></canvas>
+    </div>
+
+    <div class="h3" style="margin:18px 2px 10px">진단 기록</div>
+    <div id="historyList"></div>
+  </section>
+
+  <!-- ============ 스마트 업로드 진단 ============ -->
+  <section id="view-smart" class="hide">
+    <div class="btn-row no-print" style="margin-bottom:16px">
+      <button class="btn btn-ghost" style="flex:0 0 auto;padding:9px 16px" onclick="backToStudent()">← 취소</button>
+    </div>
+
+    <!-- 1단계: 업로드 -->
+    <div id="smartStep1">
+      <div class="card">
+        <div class="grid2">
+          <div>
+            <label class="fld">시험명</label>
+            <input id="sExamName" placeholder="예: 2026 3월 모의고사" />
+          </div>
+          <div>
+            <label class="fld">점수 (선택)</label>
+            <input id="sScore" placeholder="예: 540" />
+          </div>
+          <div>
+            <label class="fld">영역</label>
+            <div class="seg" id="sSectionSeg">
+              <button data-sec="rw" class="on">Reading &amp; Writing</button>
+              <button data-sec="math">Math</button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="card">
+        <label class="fld">① 학생 OMR 답안카드 (사진/이미지)</label>
+        <label class="drop" id="omrDrop">
+          <input type="file" id="omrFile" accept="image/*" style="display:none" />
+          <span id="omrLabel">클릭해서 OMR 이미지 선택</span>
+        </label>
+        <img id="omrPreview" class="preview hide" />
+      </div>
+
+      <div class="card">
+        <label class="fld">② 정답지</label>
+        <div class="seg" style="margin-bottom:12px" id="keyModeSeg">
+          <button data-mode="text" class="on">텍스트 입력</button>
+          <button data-mode="image">이미지 업로드</button>
+        </div>
+        <div id="keyText">
+          <textarea id="keyTextArea" rows="3" placeholder="예: 1.B 2.A 3.C 4.D …  (또는 줄바꿈으로 1 B / 2 A …)"></textarea>
+          <div class="muted" style="margin-top:5px">번호와 정답만 있으면 형식은 자유입니다. (1.B, 1) B, 1 B 모두 인식)</div>
+        </div>
+        <div id="keyImage" class="hide">
+          <label class="drop" id="keyDrop">
+            <input type="file" id="keyFile" accept="image/*" style="display:none" />
+            <span id="keyLabel">클릭해서 정답지 이미지 선택</span>
+          </label>
+          <img id="keyPreview" class="preview hide" />
+        </div>
+      </div>
+
+      <div id="smartErr"></div>
+      <button id="readBtn" class="btn btn-primary" onclick="runExtract()">읽기 → 자동 채점</button>
+    </div>
+
+    <!-- 2단계: 확인 -->
+    <div id="smartStep2" class="hide">
+      <div class="card" style="background:var(--amber-bg);border-color:#fed7aa">
+        <div style="font-weight:800;color:#b45309;font-size:14px;margin-bottom:4px">AI가 이렇게 읽었습니다 — 확인해 주세요</div>
+        <div class="muted">잘못 읽은 칸만 눌러서 고치면 됩니다. <b style="color:#be123c">빨간 행 = 오답</b>으로 채점되어 진단 대상이 됩니다.</div>
+      </div>
+      <div id="verifyTable"></div>
+      <button class="addbtn no-print" onclick="addVerifyRow()">+ 문항 추가 (누락분)</button>
+      <div id="verifyErr"></div>
+      <button class="btn btn-primary" style="margin-top:16px" onclick="confirmVerify()">확인 완료 → 진단 준비 (<span id="wrongCount">0</span>문항)</button>
+    </div>
+  </section>
+
+  <!-- ============ 진단 입력 폼 ============ -->
+  <section id="view-form" class="hide">
+    <div class="btn-row" style="margin-bottom:16px">
+      <button class="btn btn-ghost" style="flex:0 0 auto;padding:9px 16px" onclick="backToStudent()">← 취소</button>
+    </div>
+
+    <div class="card">
+      <div class="grid2">
+        <div>
+          <label class="fld">시험명</label>
+          <input id="examName" placeholder="예: 2026 3월 모의고사" />
+        </div>
+        <div>
+          <label class="fld">점수 (선택)</label>
+          <input id="score" placeholder="예: 540 · 추세선을 위해 점수로 통일 권장" />
+        </div>
+        <div>
+          <label class="fld">영역</label>
+          <div class="seg" id="sectionSeg">
+            <button data-sec="rw" class="on">Reading &amp; Writing</button>
+            <button data-sec="math">Math</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div style="display:flex;justify-content:space-between;align-items:center;margin:6px 2px 10px">
+      <div class="h3" style="margin:0">틀린 문항 <span class="muted" id="qCount" style="font-weight:400"></span></div>
+      <div class="muted">틀린 문항만 입력</div>
+    </div>
+    <div id="qList"></div>
+    <button class="addbtn" onclick="addQuestion()">+ 틀린 문항 추가</button>
+
+    <div id="formErr"></div>
+    <button id="analyzeBtn" class="btn btn-primary" style="margin-top:18px" onclick="runAnalysis()">오답 진단 시작</button>
+  </section>
+
+  <!-- ============ 리포트 ============ -->
+  <section id="view-report" class="hide"></section>
+</div>
+
+<script>
+// ============================================================
+//  ⚙️  설정 — 아래 두 값을 본인 Supabase 프로젝트 값으로 채우세요
+//      Supabase 대시보드 > Project Settings > API 에서 확인
+// ============================================================
+const SUPABASE_URL  = "https://YOUR-PROJECT.supabase.co";
+const SUPABASE_ANON = "YOUR-ANON-KEY";
+// Edge Function 엔드포인트 (위 URL 기반 자동 구성)
+const ANALYZE_URL = SUPABASE_URL + "/functions/v1/analyze";
+// ============================================================
+
+let sb = null;
+const configured = !SUPABASE_URL.includes("YOUR-PROJECT") && !SUPABASE_ANON.includes("YOUR-ANON");
+if (configured) {
+  sb = supabase.createClient(SUPABASE_URL, SUPABASE_ANON);
+} else {
+  const w = document.getElementById("configWarn");
+  w.classList.remove("hide");
+  w.innerHTML = "⚙️ <b>설정이 필요합니다.</b> HTML 하단 <code>SUPABASE_URL</code> 과 <code>SUPABASE_ANON</code> 을 본인 프로젝트 값으로 채운 뒤 새로고침하세요. 그 전까지는 데이터가 저장되지 않습니다.";
+}
+
+const CHOICES = ["A","B","C","D"];
+const SECTION_LABEL = { rw:"Reading & Writing", math:"Math" };
+const COLORS = ["#d97706","#0d9488","#e11d48","#2563eb","#7c3aed","#0891b2","#65a30d","#db2777"];
+
+let currentStudent = null;   // {id, name, created_at}
+let currentSection = "rw";
+let formQuestions = [];       // 입력 중인 문항들
+let trendChartObj = null;
+
+// ---------- 뷰 전환 ----------
+function show(view){
+  ["dashboard","student","smart","form","report"].forEach(v=>{
+    document.getElementById("view-"+v).classList.toggle("hide", v!==view);
+  });
+  window.scrollTo(0,0);
+}
+function showDashboard(){ show("dashboard"); loadStudents(); }
+function showForm(){
+  formQuestions = [emptyQ()];
+  currentSection = "rw";
+  document.getElementById("examName").value="";
+  document.getElementById("score").value="";
+  document.getElementById("formErr").innerHTML="";
+  syncSectionSeg();
+  renderForm();
+  show("form");
+}
+function backToStudent(){ openStudent(currentStudent); }
+
+// ---------- 학생 ----------
+async function loadStudents(){
+  const list = document.getElementById("studentList");
+  if(!configured){ list.innerHTML = '<div class="muted" style="padding:20px;text-align:center">Supabase 설정 후 사용 가능합니다.</div>'; return; }
+  const { data, error } = await sb.from("students").select("*").order("created_at",{ascending:false});
+  if(error){ list.innerHTML = '<div class="err">학생 목록을 불러오지 못했습니다: '+error.message+'</div>'; return; }
+  document.getElementById("studentCount").textContent = (data?.length||0)+"명";
+  if(!data || data.length===0){ list.innerHTML = '<div class="muted" style="padding:20px;text-align:center">아직 등록된 학생이 없습니다. 위에서 학생을 등록하세요.</div>'; return; }
+  list.innerHTML = data.map(s=>`
+    <div class="stu-row" onclick='openStudent(${JSON.stringify(s).replace(/'/g,"&#39;")})'>
+      <span class="nm">${esc(s.name)}</span>
+      <span class="muted">진단 보기 →</span>
+    </div>`).join("");
+}
+async function addStudent(){
+  const inp = document.getElementById("newStudentName");
+  const name = inp.value.trim();
+  if(!name) return;
+  if(!configured){ alert("Supabase 설정을 먼저 완료하세요."); return; }
+  const { error } = await sb.from("students").insert({ name });
+  if(error){ alert("등록 실패: "+error.message); return; }
+  inp.value="";
+  loadStudents();
+}
+document.getElementById("newStudentName").addEventListener("keydown",e=>{ if(e.key==="Enter") addStudent(); });
+
+async function openStudent(s){
+  currentStudent = s;
+  document.getElementById("stuName").textContent = s.name + " 학생";
+  show("student");
+  await loadHistory();
+}
+
+// ---------- 진단 기록 + 추세 ----------
+async function loadHistory(){
+  const list = document.getElementById("historyList");
+  const { data, error } = await sb.from("diagnostics")
+    .select("*").eq("student_id", currentStudent.id).order("created_at",{ascending:true});
+  if(error){ list.innerHTML = '<div class="err">'+error.message+'</div>'; return; }
+
+  const diags = data||[];
+  document.getElementById("stuMeta").textContent = "진단 "+diags.length+"회 누적";
+
+  // 반복 약점 / 개선 신호
+  renderSignals(diags);
+
+  // 추세 차트
+  renderTrend(diags);
+
+  // 기록 목록 (최신 먼저)
+  if(diags.length===0){ list.innerHTML='<div class="muted" style="padding:18px;text-align:center">아직 진단 기록이 없습니다. 위의 “📷 업로드 진단”으로 시작하세요.</div>'; return; }
+  list.innerHTML = [...diags].reverse().map(d=>{
+    const total = Object.values(d.error_type_counts||{}).reduce((a,b)=>a+b,0);
+    const date = new Date(d.created_at).toLocaleDateString("ko-KR",{year:"numeric",month:"short",day:"numeric"});
+    return `<div class="hist-row" onclick="openReport('${d.id}')">
+      <div>
+        <div style="font-weight:700;color:var(--ink)">${esc(d.exam_name||"모의고사")}</div>
+        <div class="muted">${date} · ${SECTION_LABEL[d.section]||d.section}${d.score?(" · "+esc(d.score)):""}</div>
+      </div>
+      <span class="pill pill-rose">오답 ${total}</span>
+    </div>`;
+  }).join("");
+}
+
+function renderTrend(diags){
+  const empty = document.getElementById("chartEmpty");
+  const canvas = document.getElementById("trendChart");
+  if(trendChartObj){ trendChartObj.destroy(); trendChartObj=null; }
+  if(!diags || diags.length===0){ empty.classList.add("hide"); canvas.style.display="none"; return; }
+  canvas.style.display="block"; empty.classList.toggle("hide", diags.length>=2);
+
+  // 모든 오답 유형 수집
+  const types = [];
+  diags.forEach(d=>Object.keys(d.error_type_counts||{}).forEach(t=>{ if(!types.includes(t)) types.push(t); }));
+  const labels = diags.map((d,i)=> (d.exam_name||("진단 "+(i+1))) );
+  const datasets = types.map((t,i)=>({
+    type:"bar",
+    label:t,
+    data:diags.map(d=> (d.error_type_counts||{})[t]||0 ),
+    backgroundColor:COLORS[i%COLORS.length],
+    borderRadius:4,
+    stack:"s"
+  }));
+
+  // 점수선 (파싱 가능한 경우)
+  const scores = diags.map(d=>parseScore(d.score));
+  const hasScore = scores.filter(s=>s!=null).length >= 1;
+  if(hasScore){
+    datasets.push({
+      type:"line",
+      label:"점수",
+      data:scores,
+      yAxisID:"y1",
+      borderColor:"#0f172a",
+      backgroundColor:"#0f172a",
+      borderWidth:2,
+      tension:.3,
+      pointRadius:4,
+      pointBackgroundColor:"#0f172a",
+      spanGaps:true,
+      order:0
+    });
+  }
+
+  trendChartObj = new Chart(canvas, {
+    data:{ labels, datasets },
+    options:{
+      responsive:true,
+      plugins:{ legend:{ position:"bottom", labels:{ boxWidth:12, font:{size:11} } },
+        tooltip:{ mode:"index", intersect:false } },
+      scales:{ x:{ stacked:true, grid:{display:false} },
+               y:{ stacked:true, beginAtZero:true, ticks:{precision:0}, title:{display:true,text:"오답 수"} },
+               y1:{ display:hasScore, position:"right", beginAtZero:false, grid:{drawOnChartArea:false}, title:{display:true,text:"점수"} } }
+    }
+  });
+}
+
+// 점수 문자열에서 첫 숫자 추출 ("540점"→540, "22/27"→22)
+function parseScore(s){
+  if(!s) return null;
+  const m = String(s).match(/\d+(\.\d+)?/);
+  return m ? parseFloat(m[0]) : null;
+}
+
+// 반복 약점 / 개선 신호 계산 + 렌더
+function renderSignals(diags){
+  const box = document.getElementById("signalBox");
+  box.innerHTML = "";
+  if(!diags || diags.length < 2){ return; }
+
+  const types = [];
+  diags.forEach(d=>Object.keys(d.error_type_counts||{}).forEach(t=>{ if(!types.includes(t)) types.push(t); }));
+  const series = {}; // type -> [count per diag in chronological order]
+  types.forEach(t=> series[t] = diags.map(d=> (d.error_type_counts||{})[t]||0 ));
+
+  const persistent = [], improving = [];
+  const lastIdx = diags.length - 1;
+  types.forEach(t=>{
+    const arr = series[t];
+    // 최신부터 연속으로 등장한 횟수 (streak)
+    let streak = 0;
+    for(let i=lastIdx; i>=0; i--){ if(arr[i] > 0) streak++; else break; }
+    const earlierSum = arr.slice(0, lastIdx).reduce((a,b)=>a+b,0);
+    if(streak >= 2) persistent.push({ type:t, streak, latest:arr[lastIdx] });
+    else if(arr[lastIdx] === 0 && earlierSum > 0) improving.push({ type:t });
+  });
+
+  persistent.sort((a,b)=> b.streak - a.streak || b.latest - a.latest);
+  improving.sort((a,b)=> a.type.localeCompare(b.type));
+
+  let html = "";
+  persistent.slice(0,3).forEach(p=>{
+    html += `<div class="sig sig-bad"><span class="ic">⚠️</span>반복 약점: ${esc(p.type)} · 최근 ${p.streak}회 연속</div>`;
+  });
+  improving.slice(0,3).forEach(p=>{
+    html += `<div class="sig sig-good"><span class="ic">✓</span>개선: ${esc(p.type)} · 이번 시험 0건</div>`;
+  });
+
+  // 점수 신호
+  const sc = diags.map(d=>parseScore(d.score)).filter(s=>s!=null);
+  if(sc.length >= 2){
+    const prev = sc[sc.length-2], cur = sc[sc.length-1];
+    if(cur > prev) html += `<div class="sig sig-good"><span class="ic">▲</span>점수 상승: ${prev} → ${cur}</div>`;
+    else if(cur < prev) html += `<div class="sig sig-warn"><span class="ic">▼</span>점수 하락: ${prev} → ${cur}</div>`;
+  }
+
+  if(html) box.innerHTML = `<div class="signal">${html}</div>`;
+}
+
+// ---------- 폼 ----------
+function emptyQ(){ return { number:"", student:"", correct:"", content:"" }; }
+function syncSectionSeg(){
+  document.querySelectorAll("#sectionSeg button").forEach(b=>{
+    b.classList.toggle("on", b.dataset.sec===currentSection);
+  });
+}
+document.querySelectorAll("#sectionSeg button").forEach(b=>{
+  b.addEventListener("click",()=>{ currentSection=b.dataset.sec; syncSectionSeg(); });
+});
+
+function renderForm(){
+  document.getElementById("qCount").textContent = "("+formQuestions.length+")";
+  const list = document.getElementById("qList");
+  list.innerHTML = formQuestions.map((q,i)=>`
+    <div class="qcard">
+      <div class="qhead">
+        <span class="qtag">문항 #${i+1}</span>
+        <button class="del" onclick="removeQuestion(${i})">삭제</button>
+      </div>
+      <div class="grid3" style="margin-bottom:12px">
+        <div>
+          <label class="fld">문항번호</label>
+          <input value="${esc(q.number)}" oninput="setQ(${i},'number',this.value)" placeholder="12" />
+        </div>
+        <div>
+          <label class="fld">학생 답</label>
+          <div class="choice rose">${CHOICES.map(c=>`<button class="${q.student===c?'on':''}" onclick="setQ(${i},'student','${c}')">${c}</button>`).join("")}</div>
+        </div>
+        <div>
+          <label class="fld">정답</label>
+          <div class="choice teal">${CHOICES.map(c=>`<button class="${q.correct===c?'on':''}" onclick="setQ(${i},'correct','${c}')">${c}</button>`).join("")}</div>
+        </div>
+      </div>
+      <label class="fld">문제 내용 <span class="muted">(지문 + 문제 + 선택지 전체 붙여넣기)</span></label>
+      <textarea rows="4" oninput="setQ(${i},'content',this.value)" placeholder="여기에 문제 전체를 붙여넣으세요. 함정 분석은 이 내용을 기반으로 합니다.">${esc(q.content)}</textarea>
+    </div>`).join("");
+}
+function setQ(i,f,v){ formQuestions[i][f]=v; if(f==='student'||f==='correct') renderForm(); }
+function addQuestion(){ formQuestions.push(emptyQ()); renderForm(); }
+function removeQuestion(i){ if(formQuestions.length===1) return; formQuestions.splice(i,1); renderForm(); }
+
+// ---------- 스마트 업로드 진단 ----------
+let smartSection = "rw";
+let smartKeyMode = "text";
+let omrB64 = null, omrMedia = null;
+let keyB64 = null, keyMedia = null;
+let verifyRows = [];   // [{number, student, correct}]
+
+function showSmart(){
+  smartSection = "rw"; smartKeyMode = "text";
+  omrB64 = omrMedia = keyB64 = keyMedia = null;
+  verifyRows = [];
+  document.getElementById("sExamName").value = "";
+  document.getElementById("sScore").value = "";
+  document.getElementById("keyTextArea").value = "";
+  document.getElementById("smartErr").innerHTML = "";
+  document.getElementById("verifyErr").innerHTML = "";
+  document.getElementById("omrPreview").classList.add("hide");
+  document.getElementById("keyPreview").classList.add("hide");
+  document.getElementById("omrLabel").textContent = "클릭해서 OMR 이미지 선택";
+  document.getElementById("keyLabel").textContent = "클릭해서 정답지 이미지 선택";
+  document.getElementById("omrDrop").classList.remove("has");
+  document.getElementById("keyDrop").classList.remove("has");
+  document.getElementById("omrFile").value = "";
+  document.getElementById("keyFile").value = "";
+  document.querySelectorAll("#sSectionSeg button").forEach(b=>b.classList.toggle("on", b.dataset.sec==="rw"));
+  document.querySelectorAll("#keyModeSeg button").forEach(b=>b.classList.toggle("on", b.dataset.mode==="text"));
+  document.getElementById("keyText").classList.remove("hide");
+  document.getElementById("keyImage").classList.add("hide");
+  document.getElementById("smartStep1").classList.remove("hide");
+  document.getElementById("smartStep2").classList.add("hide");
+  show("smart");
+}
+
+// 세그먼트 / 모드 전환
+document.querySelectorAll("#sSectionSeg button").forEach(b=>{
+  b.addEventListener("click",()=>{ smartSection=b.dataset.sec;
+    document.querySelectorAll("#sSectionSeg button").forEach(x=>x.classList.toggle("on",x===b)); });
+});
+document.querySelectorAll("#keyModeSeg button").forEach(b=>{
+  b.addEventListener("click",()=>{ smartKeyMode=b.dataset.mode;
+    document.querySelectorAll("#keyModeSeg button").forEach(x=>x.classList.toggle("on",x===b));
+    document.getElementById("keyText").classList.toggle("hide", smartKeyMode!=="text");
+    document.getElementById("keyImage").classList.toggle("hide", smartKeyMode!=="image"); });
+});
+
+// 파일 → 다운스케일 → base64
+function fileToScaledB64(file, maxEdge=1568){
+  return new Promise((resolve,reject)=>{
+    const img=new Image(); const url=URL.createObjectURL(file);
+    img.onload=()=>{
+      const scale=Math.min(1, maxEdge/Math.max(img.width,img.height));
+      const cw=Math.max(1,Math.round(img.width*scale)), ch=Math.max(1,Math.round(img.height*scale));
+      const c=document.createElement("canvas"); c.width=cw; c.height=ch;
+      c.getContext("2d").drawImage(img,0,0,cw,ch);
+      URL.revokeObjectURL(url);
+      const dataUrl=c.toDataURL("image/jpeg",0.9);
+      resolve({ b64:dataUrl.split(",")[1], media:"image/jpeg", dataUrl });
+    };
+    img.onerror=()=>{ URL.revokeObjectURL(url); reject(new Error("이미지를 읽을 수 없습니다. JPEG/PNG로 올려주세요. (아이폰 HEIC는 변환 필요)")); };
+    img.src=url;
+  });
+}
+document.getElementById("omrFile").addEventListener("change", async e=>{
+  const f=e.target.files[0]; if(!f) return;
+  try{ const r=await fileToScaledB64(f); omrB64=r.b64; omrMedia=r.media;
+    const p=document.getElementById("omrPreview"); p.src=r.dataUrl; p.classList.remove("hide");
+    document.getElementById("omrLabel").textContent="✓ "+f.name;
+    document.getElementById("omrDrop").classList.add("has");
+  }catch(err){ document.getElementById("smartErr").innerHTML='<div class="err">'+esc(err.message)+'</div>'; }
+});
+document.getElementById("keyFile").addEventListener("change", async e=>{
+  const f=e.target.files[0]; if(!f) return;
+  try{ const r=await fileToScaledB64(f); keyB64=r.b64; keyMedia=r.media;
+    const p=document.getElementById("keyPreview"); p.src=r.dataUrl; p.classList.remove("hide");
+    document.getElementById("keyLabel").textContent="✓ "+f.name;
+    document.getElementById("keyDrop").classList.add("has");
+  }catch(err){ document.getElementById("smartErr").innerHTML='<div class="err">'+esc(err.message)+'</div>'; }
+});
+
+// 정답지 텍스트 파서 ("1.B 2.A", "1) B", "1 B" 모두 인식)
+function parseKeyText(str){
+  const map={}; const re=/(\d+)\s*[\.\):]?\s*([A-Da-d])\b/g; let m;
+  while((m=re.exec(str))) map[m[1]]=m[2].toUpperCase();
+  return map;
+}
+
+// 비전 추출 호출
+async function callExtract(b64, media, promptText){
+  const res=await fetch(ANALYZE_URL,{ method:"POST",
+    headers:{ "Content-Type":"application/json","Authorization":"Bearer "+SUPABASE_ANON,"apikey":SUPABASE_ANON },
+    body:JSON.stringify({ max_tokens:1500, messages:[{ role:"user", content:[
+      { type:"image", source:{ type:"base64", media_type:media, data:b64 } },
+      { type:"text", text:promptText }
+    ]}]})
+  });
+  const out=await res.json();
+  if(out.error) throw new Error(out.error);
+  const text=(out.text||"").replace(/```json|```/g,"").trim();
+  return JSON.parse(text);
+}
+
+async function runExtract(){
+  const errBox=document.getElementById("smartErr"); errBox.innerHTML="";
+  if(!configured){ errBox.innerHTML='<div class="err">Supabase 설정을 먼저 완료하세요.</div>'; return; }
+  if(!omrB64){ errBox.innerHTML='<div class="err">학생 OMR 이미지를 업로드하세요.</div>'; return; }
+
+  const btn=document.getElementById("readBtn"); btn.disabled=true; btn.textContent="읽는 중… (10~20초)";
+  try{
+    const omrPrompt='이 이미지는 SAT 시험의 OMR 답안카드입니다. 각 문항 번호와 학생이 마킹한 선택지(A,B,C,D 중 하나)를 정확히 읽으세요. 마킹이 비었거나 불분명하면 빈 문자열로 두세요. 순수 JSON만 출력(설명·백틱 금지): {"answers":{"1":"B","2":"A"}}';
+    const studentRes=await callExtract(omrB64, omrMedia, omrPrompt);
+    const studentAns=studentRes.answers||{};
+
+    let correctAns={};
+    if(smartKeyMode==="text"){
+      correctAns=parseKeyText(document.getElementById("keyTextArea").value);
+    }else{
+      if(!keyB64){ throw new Error("정답지 이미지를 업로드하거나 텍스트로 입력하세요."); }
+      const keyPrompt='이 이미지는 SAT 시험의 정답지입니다. 각 문항 번호와 정답 선택지(A,B,C,D)를 읽으세요. 순수 JSON만 출력(설명·백틱 금지): {"answers":{"1":"B","2":"A"}}';
+      const keyRes=await callExtract(keyB64, keyMedia, keyPrompt);
+      correctAns=keyRes.answers||{};
+    }
+    if(Object.keys(correctAns).length===0){ throw new Error("정답지를 인식하지 못했습니다. 텍스트 입력으로 다시 시도해 보세요."); }
+
+    // 번호 합집합 → 정렬
+    const nums=[...new Set([...Object.keys(studentAns), ...Object.keys(correctAns)])]
+      .map(n=>parseInt(n,10)).filter(n=>!isNaN(n)).sort((a,b)=>a-b);
+    verifyRows=nums.map(n=>({ number:String(n),
+      student:(studentAns[n]||"").toUpperCase(),
+      correct:(correctAns[n]||"").toUpperCase() }));
+
+    renderVerify();
+    document.getElementById("smartStep1").classList.add("hide");
+    document.getElementById("smartStep2").classList.remove("hide");
+    window.scrollTo(0,0);
+  }catch(e){
+    errBox.innerHTML='<div class="err">읽기에 실패했습니다. 이미지가 선명한지 확인하거나, 정답지는 텍스트 입력을 써보세요.<br><span class="muted">'+esc(String(e.message||e))+'</span></div>';
+  }finally{
+    btn.disabled=false; btn.textContent="읽기 → 자동 채점";
+  }
+}
+
+function vRowWrong(r){ return r.correct && r.student!==r.correct; }
+
+function renderVerify(){
+  const wrongN=verifyRows.filter(vRowWrong).length;
+  document.getElementById("wrongCount").textContent=wrongN;
+  const VC=["A","B","C","D"];
+  const rows=verifyRows.map((r,i)=>{
+    const wrong=vRowWrong(r);
+    return `<tr class="${wrong?'wrong':'ok'}">
+      <td class="vnum"><input value="${esc(r.number)}" oninput="setVerify(${i},'number',this.value)" /></td>
+      <td><div class="vchoice rose">${VC.map(c=>`<button class="${r.student===c?'on':''}" onclick="setVerify(${i},'student','${c}')">${c}</button>`).join("")}</div></td>
+      <td><div class="vchoice teal">${VC.map(c=>`<button class="${r.correct===c?'on':''}" onclick="setVerify(${i},'correct','${c}')">${c}</button>`).join("")}</div></td>
+      <td class="vmark ${wrong?'x':'o'}">${r.correct?(wrong?'오답':'정답'):'—'}</td>
+      <td><button class="vdel no-print" onclick="removeVerifyRow(${i})">✕</button></td>
+    </tr>`;
+  }).join("");
+  document.getElementById("verifyTable").innerHTML=`
+    <table class="vtable">
+      <thead><tr><th>문항</th><th>학생 답</th><th>정답</th><th>채점</th><th></th></tr></thead>
+      <tbody>${rows}</tbody>
+    </table>`;
+}
+function setVerify(i,f,v){ verifyRows[i][f]=(f==='number'?v:v.toUpperCase()); renderVerify(); }
+function addVerifyRow(){ verifyRows.push({number:"",student:"",correct:""}); renderVerify(); }
+function removeVerifyRow(i){ verifyRows.splice(i,1); renderVerify(); }
+
+function confirmVerify(){
+  const errBox=document.getElementById("verifyErr"); errBox.innerHTML="";
+  const wrong=verifyRows.filter(vRowWrong);
+  if(wrong.length===0){ errBox.innerHTML='<div class="err">오답으로 표시된 문항이 없습니다. 채점을 확인해 주세요.</div>'; return; }
+  // 기존 진단 폼으로 인계 (번호·학생답·정답 채움, 내용만 입력하면 됨)
+  formQuestions=wrong.map(r=>({ number:r.number, student:r.student, correct:r.correct, content:"" }));
+  currentSection=smartSection; syncSectionSeg();
+  document.getElementById("examName").value=document.getElementById("sExamName").value;
+  document.getElementById("score").value=document.getElementById("sScore").value;
+  document.getElementById("formErr").innerHTML='<div class="card" style="background:var(--teal-bg);border-color:#99f6e4;color:#0f766e;font-size:13px;padding:11px 14px;margin-bottom:14px">채점 완료 — 오답 '+wrong.length+'문항이 채워졌습니다. 각 문항의 <b>문제 내용</b>만 붙여넣고 진단을 시작하세요.</div>';
+  renderForm();
+  show("form");
+}
+
+// ---------- 분석 실행 ----------
+async function runAnalysis(){
+  const errBox = document.getElementById("formErr");
+  errBox.innerHTML="";
+  const valid = formQuestions.filter(q=>q.number&&q.student&&q.correct&&q.content.trim());
+  if(valid.length===0){ errBox.innerHTML='<div class="err">분석할 틀린 문항을 최소 1개 입력하세요. (문항번호 · 학생답 · 정답 · 문제 내용)</div>'; return; }
+  if(!configured){ errBox.innerHTML='<div class="err">Supabase 설정을 먼저 완료하세요.</div>'; return; }
+
+  const btn = document.getElementById("analyzeBtn");
+  btn.disabled=true; btn.textContent="진단 분석 중…";
+
+  const examName = document.getElementById("examName").value.trim();
+  const score = document.getElementById("score").value.trim();
+  const secLabel = SECTION_LABEL[currentSection];
+
+  const sys = buildSystemPrompt(secLabel);
+  const userMsg = buildUserMsg(currentStudent.name, examName, secLabel, score, valid);
+
+  try{
+    const res = await fetch(ANALYZE_URL,{
+      method:"POST",
+      headers:{ "Content-Type":"application/json", "Authorization":"Bearer "+SUPABASE_ANON, "apikey":SUPABASE_ANON },
+      body:JSON.stringify({ system:sys, messages:[{ role:"user", content:userMsg }] })
+    });
+    const out = await res.json();
+    if(out.error) throw new Error(out.error);
+    const text = (out.text||"").replace(/```json|```/g,"").trim();
+    const parsed = JSON.parse(text);
+
+    // 저장
+    const { data:dRow, error:dErr } = await sb.from("diagnostics").insert({
+      student_id: currentStudent.id,
+      exam_name: examName || null,
+      section: currentSection,
+      score: score || null,
+      weakness_summary: parsed.weaknessSummary || "",
+      teacher_notes: parsed.teacherNotes || "",
+      prescription: parsed.prescription || [],
+      error_type_counts: parsed.errorTypeCounts || {}
+    }).select().single();
+    if(dErr) throw new Error("저장 실패: "+dErr.message);
+
+    const qRows = (parsed.perQuestion||[]).map(q=>({
+      diagnostic_id: dRow.id,
+      number: q.number, student_answer: q.studentAnswer, correct_answer: q.correctAnswer,
+      why_chose: q.whyChose, trap_intent: q.trapIntent, correct_logic: q.correctLogic, error_type: q.errorType
+    }));
+    if(qRows.length) await sb.from("diagnostic_questions").insert(qRows);
+
+    openReport(dRow.id);
+  }catch(e){
+    errBox.innerHTML='<div class="err">분석 중 오류가 발생했습니다. 잠시 후 다시 시도하거나 문제 내용을 확인하세요.<br><span class="muted">'+esc(String(e.message||e))+'</span></div>';
+  }finally{
+    btn.disabled=false; btn.textContent="오답 진단 시작";
+  }
+}
+
+function buildSystemPrompt(secLabel){
+  return `당신은 미국 대학입시 SAT 전문 강사이자 오답 진단 전문가입니다. 한국 학생을 가르치는 학원 선생님이 수업 준비에 쓸 진단 리포트를 작성합니다. 모든 출력은 한국어로 작성합니다.
+
+분석 대상 영역: ${secLabel}
+
+각 틀린 문항에 대해 다음을 깊이 있게 분석하세요:
+1. whyChose(오답 선택 배경): 이 학생이 "왜 하필 그 오답을 매력적이라고 느꼈는지" 학생의 사고 과정을 구체적으로 추정.
+2. trapIntent(출제자 함정 의도): 출제자가 그 오답 선택지를 어떤 의도로 깔아두었는지.
+3. correctLogic(정답 논리): 정답이 왜 정답인지 단계적으로, 학생이 따라올 수 있게.
+4. errorType(오답 유형): R&W: ["어휘/문맥","핵심 근거 찾기","추론","글의 구조/목적","문법/문장 규칙","함정 선택지","시간 압박/실수"] / Math: ["개념 이해 부족","계산 실수","문제 해석 오류","공식 적용 오류","함정 선택지","시간 압박/실수"] 중 가장 가까운 하나.
+
+종합:
+- weaknessSummary: 약점 패턴을 2~4문장. 근본 원인을 짚을 것.
+- errorTypeCounts: errorType 등장 횟수 객체. 예: {"추론":2}
+- prescription: 우선순위 학습 처방 3~4개(구체적 행동). 배열.
+- teacherNotes: "교사용 수업 포인트". 선생님이 이 학생을 가르칠 때 강조할 핵심 2~3가지를 선생님에게 말하듯. 가장 중요.
+
+반드시 아래 JSON 형식으로만 응답(백틱·설명 없이 순수 JSON):
+{"perQuestion":[{"number":"","studentAnswer":"","correctAnswer":"","whyChose":"","trapIntent":"","correctLogic":"","errorType":""}],"weaknessSummary":"","errorTypeCounts":{},"prescription":[],"teacherNotes":""}`;
+}
+function buildUserMsg(name,exam,secLabel,score,valid){
+  return `학생: ${name}\n시험: ${exam||"(미입력)"}\n영역: ${secLabel}\n${score?("점수/맞은 개수: "+score+"\n"):""}\n아래는 학생이 틀린 문항들입니다.\n\n`+
+    valid.map(q=>`[문항 ${q.number}] 학생이 고른 답: ${q.student} / 정답: ${q.correct}\n문제 내용:\n${q.content}`).join("\n\n---\n\n");
+}
+
+// ---------- 리포트 ----------
+let reportCtx = null;        // { d, qs, allDiags }
+let reportMode = "teacher";  // 'teacher' | 'parent'
+
+async function openReport(diagId){
+  show("report");
+  const v = document.getElementById("view-report");
+  v.innerHTML = '<div class="loading"><div class="spinner"></div>리포트 불러오는 중…</div>';
+  const { data:d } = await sb.from("diagnostics").select("*").eq("id",diagId).single();
+  const { data:qs } = await sb.from("diagnostic_questions").select("*").eq("diagnostic_id",diagId);
+  const { data:allDiags } = await sb.from("diagnostics")
+    .select("*").eq("student_id", d.student_id).order("created_at",{ascending:true});
+  reportCtx = { d, qs:qs||[], allDiags:allDiags||[] };
+  reportMode = "teacher";
+  renderReportView();
+}
+
+function setReportMode(m){ reportMode = m; renderReportView(); window.scrollTo(0,0); }
+
+function renderReportView(){
+  if(!reportCtx) return;
+  if(reportMode === "parent") renderParentReport(reportCtx);
+  else renderReport(reportCtx.d, reportCtx.qs);
+}
+
+function renderReport(d, qs){
+  const v = document.getElementById("view-report");
+  const total = Object.values(d.error_type_counts||{}).reduce((a,b)=>a+b,0);
+  const maxC = Math.max(1, ...Object.values(d.error_type_counts||{}));
+  const date = new Date(d.created_at).toLocaleDateString("ko-KR",{year:"numeric",month:"long",day:"numeric"});
+
+  const counts = Object.entries(d.error_type_counts||{}).map(([t,n])=>`
+    <div style="margin-bottom:9px">
+      <div style="display:flex;justify-content:space-between;font-size:12px;color:var(--mut);margin-bottom:3px"><span>${esc(t)}</span><span style="font-weight:700">${n}</span></div>
+      <div style="height:8px;background:#f1f5f9;border-radius:99px;overflow:hidden"><div style="height:100%;width:${(n/maxC)*100}%;background:var(--amber);border-radius:99px"></div></div>
+    </div>`).join("");
+
+  const pres = (d.prescription||[]).map((p,i)=>`<li><span class="n">${i+1}</span><span>${esc(p)}</span></li>`).join("");
+
+  const qcards = qs.map(q=>`
+    <div class="diagq">
+      <div class="bar">
+        <span class="qn">문항 ${esc(q.number)}</span>
+        <div class="tags">
+          <span class="pill pill-rose">학생 ${esc(q.student_answer)}</span>
+          <span class="pill pill-teal">정답 ${esc(q.correct_answer)}</span>
+          ${q.error_type?`<span class="pill pill-amber">${esc(q.error_type)}</span>`:""}
+        </div>
+      </div>
+      <div class="diagrow"><div class="vbar" style="background:#fb7185"></div><div><div class="lbl">왜 이 오답을 골랐나</div><div class="bd">${esc(q.why_chose)}</div></div></div>
+      <div class="diagrow"><div class="vbar" style="background:#fbbf24"></div><div><div class="lbl">출제자의 함정 의도</div><div class="bd">${esc(q.trap_intent)}</div></div></div>
+      <div class="diagrow" style="margin-bottom:16px"><div class="vbar" style="background:#2dd4bf"></div><div><div class="lbl">정답 논리</div><div class="bd">${esc(q.correct_logic)}</div></div></div>
+    </div>`).join("");
+
+  v.innerHTML = `
+    <div class="btn-row no-print" style="margin-bottom:16px">
+      <button class="btn btn-ghost" style="flex:0 0 auto;padding:9px 16px" onclick="backToStudent()">← 학생 카드</button>
+      <button class="btn btn-ghost" onclick="setReportMode('parent')">학부모용 보기</button>
+      <button class="btn btn-ghost" onclick="window.print()">인쇄 / PDF</button>
+    </div>
+    <div class="rpt-head">
+      <div class="ey">진단 완료</div>
+      <h2>${esc(currentStudent.name)} 학생 오답 진단</h2>
+      <p>${esc(d.exam_name||"모의고사")} · ${SECTION_LABEL[d.section]||d.section}${d.score?(" · "+esc(d.score)):""} · ${date} · 분석 문항 ${qs.length}개 · 오답 ${total}</p>
+    </div>
+    ${d.teacher_notes?`<div class="teacher-box"><div class="t">📌 교사용 수업 포인트</div><p>${esc(d.teacher_notes)}</p></div>`:""}
+    <div class="grid2">
+      <div class="card"><div class="h3">약점 패턴 진단</div><p style="font-size:14px;line-height:1.65;color:var(--ink2);margin:0">${esc(d.weakness_summary)}</p></div>
+      <div class="card"><div class="h3">오답 유형 분포</div>${counts||'<div class="muted">데이터 없음</div>'}</div>
+    </div>
+    ${pres?`<div class="card"><div class="h3">앞으로의 학습 처방</div><ul class="pres">${pres}</ul></div>`:""}
+    <div class="h3" style="margin:6px 2px 12px">문항별 상세 진단</div>
+    ${qcards}
+  `;
+}
+
+// ---------- 학부모용 리포트 ----------
+function renderParentReport({ d, qs, allDiags }){
+  const v = document.getElementById("view-report");
+  const date = new Date(d.created_at).toLocaleDateString("ko-KR",{year:"numeric",month:"long",day:"numeric"});
+  const counts = d.error_type_counts||{};
+  const total = Object.values(counts).reduce((a,b)=>a+b,0);
+  const topType = Object.entries(counts).sort((a,b)=>b[1]-a[1])[0];
+
+  // 진행 추이 (직전 진단 대비)
+  const idx = allDiags.findIndex(x=>x.id===d.id);
+  let progressHtml = "";
+  if(idx > 0){
+    const prev = allDiags[idx-1];
+    const prevTotal = Object.values(prev.error_type_counts||{}).reduce((a,b)=>a+b,0);
+    const ps = parseScore(prev.score), cs = parseScore(d.score);
+    let msg, cls;
+    if(cs!=null && ps!=null && cs>ps){ msg = `지난 시험보다 점수가 올랐습니다 (${ps} → ${cs}점). 꾸준히 성장하고 있어요.`; cls="pp-up"; }
+    else if(total < prevTotal){ msg = `지난 시험보다 틀린 문항이 줄었습니다 (${prevTotal} → ${total}개). 좋은 방향으로 가고 있어요.`; cls="pp-up"; }
+    else if(total === prevTotal){ msg = `지난 시험과 비슷한 수준을 유지하고 있습니다. 약점 영역에 집중하면 다음 도약이 가능합니다.`; cls="pp-flat"; }
+    else { msg = `이번 시험은 조금 더 어려웠던 것으로 보입니다. 아래 보완 포인트에 집중하면 충분히 회복할 수 있습니다.`; cls="pp-flat"; }
+    progressHtml = `<div class="parent-progress ${cls}"><span>📈</span><span>${msg}</span></div>`;
+  } else {
+    progressHtml = `<div class="parent-progress pp-flat"><span>📋</span><span>첫 진단입니다. 이번 결과를 기준선으로 삼아 다음 시험부터 성장 추이를 함께 보겠습니다.</span></div>`;
+  }
+
+  const pres = (d.prescription||[]).map(p=>`<li><span class="n">✓</span><span>${esc(p)}</span></li>`).join("");
+
+  v.innerHTML = `
+    <div class="btn-row no-print" style="margin-bottom:16px">
+      <button class="btn btn-ghost" style="flex:0 0 auto;padding:9px 16px" onclick="backToStudent()">← 학생 카드</button>
+      <button class="btn btn-ghost" onclick="setReportMode('teacher')">교사용 보기</button>
+      <button class="btn btn-ghost" onclick="window.print()">인쇄 / PDF</button>
+    </div>
+    <div class="rpt-head">
+      <div class="ey">학습 리포트</div>
+      <h2>${esc(currentStudent.name)} 학생</h2>
+      <p>${esc(d.exam_name||"모의고사")} · ${SECTION_LABEL[d.section]||d.section}${d.score?(" · "+esc(d.score)+"점"):""} · ${date}</p>
+    </div>
+
+    ${progressHtml}
+
+    <div class="pbox">
+      <div class="ph">이번 시험 요약</div>
+      <p>이번 ${SECTION_LABEL[d.section]||d.section} 영역에서 총 <b>${total}문항</b>을 점검했습니다.${topType?` 가장 보완이 필요한 부분은 <b>${esc(topType[0])}</b> 유형입니다.`:""}</p>
+    </div>
+
+    <div class="pbox">
+      <div class="ph">우리 아이의 보완 포인트</div>
+      <p>${esc(d.weakness_summary||"")}</p>
+    </div>
+
+    ${pres?`<div class="pbox"><div class="ph">집에서 이렇게 도와주세요</div><ul class="pres">${pres}</ul></div>`:""}
+
+    <div class="pbox" style="border:none;background:#f8fafc;text-align:center">
+      <p style="color:var(--mut);font-size:13px">아이의 약점을 정확히 짚고, 시험을 거듭하며 함께 추적합니다.<br><b style="color:var(--ink)">INTO유학센터</b></p>
+    </div>
+  `;
+}
+
+// ---------- util ----------
+function esc(s){ return String(s==null?"":s).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;"); }
+
+// 시작
+showDashboard();
+</script>
+</body>
+</html>
