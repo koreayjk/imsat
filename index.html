@@ -938,22 +938,33 @@ async function extractContent(){
     const labels=formQuestions.map(q=>q.number);
     const secLabel=SECTION_LABEL[currentSection];
     const prompt='업로드된 이미지는 SAT 문제집 페이지입니다. 영역: '+secLabel+'. '+
-      '문항 라벨 규칙: "M1·N"=모듈1의 N번, "M2·N"=모듈2의 N번. 페이지의 모듈 표기(Module 1/2)와 문항 번호를 보고 매칭하세요. '+
-      '다음 문항들의 전체 내용(지문/문제 + 선택지 A~D 전체)을 이미지에서 찾아 그대로 추출하세요: '+labels.join(", ")+'. '+
-      '찾지 못한 문항은 빈 문자열. 순수 JSON만 출력(설명·백틱 금지). 키는 위 라벨 그대로: {"'+labels[0]+'":"문항 전체 내용 ..."}';
+      '문항 라벨 규칙: "M1·N"=모듈1의 N번, "M2·N"=모듈2의 N번. 페이지의 모듈 표기(Module 1/2)와 번호를 보고 매칭하세요. '+
+      '다음 문항들의 전체 내용(지문/문제 + 선택지 A~D 전체)을 이미지에서 찾아 그대로 옮겨 적으세요: '+labels.join(", ")+'. '+
+      '아래 형식으로만 출력하세요. 마커 줄(<<<<라벨>>>>)은 정확히 그대로 쓰고, 그 아래 줄부터 해당 문항 내용을 적습니다. '+
+      'JSON·따옴표 묶음·백틱은 쓰지 마세요. 찾지 못한 문항은 마커만 쓰고 내용은 비웁니다.\n\n'+
+      labels.map(l=>'<<<<'+l+'>>>>\n(여기에 '+l+' 문항의 지문·문제·선택지 전체)').join('\n\n');
 
     const content=[
       ...bookImgs.map(im=>({ type:"image", source:{ type:"base64", media_type:im.media, data:im.b64 } })),
       { type:"text", text:prompt }
     ];
     const res=await fetch(ANALYZE_URL,{ method:"POST", headers:await fnHeaders(),
-      body:JSON.stringify({ max_tokens:4000, messages:[{ role:"user", content }] }) });
+      body:JSON.stringify({ max_tokens:8000, messages:[{ role:"user", content }] }) });
     const out=await res.json();
     if(out.error) throw new Error(out.error);
-    const parsed=JSON.parse((out.text||"").replace(/```json|```/g,"").trim());
+
+    // 마커 구분 파싱 (JSON 아님 → 따옴표/줄바꿈에 안전)
+    const raw=out.text||"";
+    const parts=raw.split(/<<<<\s*(.+?)\s*>>>>/);
+    const map={};
+    for(let i=1;i<parts.length;i+=2){ const lb=(parts[i]||"").trim(); const ct=(parts[i+1]||"").trim(); if(lb) map[lb]=ct; }
 
     let filled=0;
-    formQuestions.forEach(q=>{ const t=parsed[q.number]; if(t && String(t).trim()){ q.content=String(t).trim(); filled++; } });
+    formQuestions.forEach(q=>{
+      let t=map[q.number];
+      if(t===undefined){ const norm=q.number.replace(/[^a-zA-Z0-9]/g,'').toLowerCase(); const k=Object.keys(map).find(k=>k.replace(/[^a-zA-Z0-9]/g,'').toLowerCase()===norm); if(k) t=map[k]; }
+      if(t && t.trim()){ q.content=t.trim(); filled++; }
+    });
     if(filled===0) throw new Error("페이지에서 해당 문항을 찾지 못했습니다. 틀린 문항이 나온 페이지가 맞는지, 사진이 선명한지 확인하세요.");
 
     saveDraft('form');
