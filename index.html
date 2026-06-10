@@ -385,6 +385,7 @@ let currentStudent = null;   // {id, name, created_at}
 let currentSection = "rw";
 let formQuestions = [];       // 입력 중인 문항들
 let trendChartObj = null;
+let historyPollTimer = null;
 
 // ---------- 뷰 전환 ----------
 function show(view){
@@ -505,27 +506,41 @@ async function loadHistory(){
   if(error){ list.innerHTML = '<div class="err">'+error.message+'</div>'; return; }
 
   const diags = data||[];
-  document.getElementById("stuMeta").textContent = "진단 "+diags.length+"회 누적";
+  const done = diags.filter(d=>(d.status||'done')==='done');
+  document.getElementById("stuMeta").textContent = "진단 "+done.length+"회 누적";
 
-  // 반복 약점 / 개선 신호
-  renderSignals(diags);
+  // 신호·추세는 완료된 진단만 사용
+  renderSignals(done);
+  renderTrend(done);
 
-  // 추세 차트
-  renderTrend(diags);
+  if(diags.length===0){ list.innerHTML='<div class="muted" style="padding:18px;text-align:center">아직 진단 기록이 없습니다. 위의 “📷 업로드 진단”으로 시작하세요.</div>'; }
+  else {
+    list.innerHTML = [...diags].reverse().map(d=>{
+      const st = d.status || 'done';
+      const date = new Date(d.created_at).toLocaleDateString("ko-KR",{year:"numeric",month:"short",day:"numeric"});
+      const meta = `${date} · ${SECTION_LABEL[d.section]||d.section}${d.score?(" · "+esc(d.score)):""}`;
+      const title = `<div style="font-weight:700;color:var(--ink)">${esc(d.exam_name||"모의고사")}</div><div class="muted">${meta}</div>`;
+      if(st==='processing'){
+        return `<div class="hist-row" style="cursor:default"><div>${title}</div>
+          <span class="pill" style="background:#fef9c3;color:#854d0e">● 분석 중…</span></div>`;
+      }
+      if(st==='error'){
+        return `<div class="hist-row" onclick="alert('이 진단은 분석 중 오류가 났습니다. 삭제 후 다시 시도해 주세요.')"><div>${title}</div>
+          <span class="pill pill-rose">오류</span></div>`;
+      }
+      const total = Object.values(d.error_type_counts||{}).reduce((a,b)=>a+b,0);
+      return `<div class="hist-row" onclick="openReport('${d.id}')"><div>${title}</div>
+        <span class="pill pill-rose">오답 ${total}</span></div>`;
+    }).join("");
+  }
 
-  // 기록 목록 (최신 먼저)
-  if(diags.length===0){ list.innerHTML='<div class="muted" style="padding:18px;text-align:center">아직 진단 기록이 없습니다. 위의 “📷 업로드 진단”으로 시작하세요.</div>'; return; }
-  list.innerHTML = [...diags].reverse().map(d=>{
-    const total = Object.values(d.error_type_counts||{}).reduce((a,b)=>a+b,0);
-    const date = new Date(d.created_at).toLocaleDateString("ko-KR",{year:"numeric",month:"short",day:"numeric"});
-    return `<div class="hist-row" onclick="openReport('${d.id}')">
-      <div>
-        <div style="font-weight:700;color:var(--ink)">${esc(d.exam_name||"모의고사")}</div>
-        <div class="muted">${date} · ${SECTION_LABEL[d.section]||d.section}${d.score?(" · "+esc(d.score)):""}</div>
-      </div>
-      <span class="pill pill-rose">오답 ${total}</span>
-    </div>`;
-  }).join("");
+  // 분석 중인 진단이 있으면 5초마다 자동 새로고침 (완료되면 자동 반영)
+  clearTimeout(historyPollTimer);
+  if(diags.some(d=>(d.status||'done')==='processing')){
+    historyPollTimer = setTimeout(()=>{
+      if(!document.getElementById('view-student').classList.contains('hide')) loadHistory();
+    }, 5000);
+  }
 }
 
 function renderTrend(diags){
@@ -959,50 +974,32 @@ async function runAnalysis(){
   if(!configured){ errBox.innerHTML='<div class="err">Supabase 설정을 먼저 완료하세요.</div>'; return; }
 
   const btn = document.getElementById("analyzeBtn");
-  btn.disabled=true; btn.textContent="진단 분석 중…";
+  btn.disabled=true; btn.textContent="시작하는 중…";
 
   const examName = document.getElementById("examName").value.trim();
   const score = document.getElementById("score").value.trim();
   const secLabel = SECTION_LABEL[currentSection];
 
-  const sys = buildSystemPrompt(secLabel);
-  const userMsg = buildUserMsg(currentStudent.name, examName, secLabel, score, valid);
-
   try{
-    const res = await fetch(ANALYZE_URL,{
-      method:"POST",
-      headers: await fnHeaders(),
-      body:JSON.stringify({ system:sys, messages:[{ role:"user", content:userMsg }] })
-    });
-    const out = await res.json();
-    if(out.error) throw new Error(out.error);
-    const text = (out.text||"").replace(/```json|```/g,"").trim();
-    const parsed = JSON.parse(text);
-
-    // 저장
+    // 1) '분석 중' 진단 행 생성 (teacher_id 자동 기록)
     const { data:dRow, error:dErr } = await sb.from("diagnostics").insert({
-      student_id: currentStudent.id,
-      exam_name: examName || null,
-      section: currentSection,
-      score: score || null,
-      weakness_summary: parsed.weaknessSummary || "",
-      teacher_notes: parsed.teacherNotes || "",
-      prescription: parsed.prescription || [],
-      error_type_counts: parsed.errorTypeCounts || {}
+      student_id: currentStudent.id, exam_name: examName||null,
+      section: currentSection, score: score||null, status: "processing"
     }).select().single();
-    if(dErr) throw new Error("저장 실패: "+dErr.message);
+    if(dErr) throw new Error("진단 생성 실패: "+dErr.message);
 
-    const qRows = (parsed.perQuestion||[]).map(q=>({
-      diagnostic_id: dRow.id,
-      number: q.number, student_answer: q.studentAnswer, correct_answer: q.correctAnswer,
-      why_chose: q.whyChose, trap_intent: q.trapIntent, correct_logic: q.correctLogic, error_type: q.errorType
-    }));
-    if(qRows.length) await sb.from("diagnostic_questions").insert(qRows);
+    // 2) 서버에 백그라운드 분석 요청 (완료를 기다리지 않음)
+    const res = await fetch(ANALYZE_URL,{ method:"POST", headers: await fnHeaders(),
+      body:JSON.stringify({ diagnosticId:dRow.id, studentName:currentStudent.name,
+        secLabel, exam:examName, score, questions:valid }) });
+    if(!res.ok && res.status!==202){ const o=await res.json().catch(()=>({})); throw new Error(o.error||("요청 실패 ("+res.status+")")); }
 
+    // 3) 학생 카드로 — 자리를 비워도 서버가 끝까지 진행
     clearDraft();
-    openReport(dRow.id);
+    openStudent(currentStudent);
+    alert("분석을 시작했습니다. 백그라운드에서 진행되니 자리를 비워도 됩니다. 완료되면 진단 기록에 자동으로 나타납니다.");
   }catch(e){
-    errBox.innerHTML='<div class="err">분석 중 오류가 발생했습니다. 잠시 후 다시 시도하거나 문제 내용을 확인하세요.<br><span class="muted">'+esc(String(e.message||e))+'</span></div>';
+    errBox.innerHTML='<div class="err">시작 중 오류가 발생했습니다.<br><span class="muted">'+esc(String(e.message||e))+'</span></div>';
   }finally{
     btn.disabled=false; btn.textContent="오답 진단 시작";
   }
