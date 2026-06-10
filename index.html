@@ -525,7 +525,7 @@ async function loadHistory(){
           <span class="pill" style="background:#fef9c3;color:#854d0e">● 분석 중…</span></div>`;
       }
       if(st==='error'){
-        return `<div class="hist-row" onclick="alert('이 진단은 분석 중 오류가 났습니다. 삭제 후 다시 시도해 주세요.')"><div>${title}</div>
+        return `<div class="hist-row" onclick="alert('분석 오류: '+decodeURIComponent('${encodeURIComponent(d.error_msg||'알 수 없음')}')+'\\n\\n삭제 후 다시 시도해 주세요.')"><div>${title}</div>
           <span class="pill pill-rose">오류</span></div>`;
       }
       const total = Object.values(d.error_type_counts||{}).reduce((a,b)=>a+b,0);
