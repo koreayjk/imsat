@@ -777,7 +777,7 @@ document.querySelectorAll("#keyModeSeg button").forEach(b=>{
 });
 
 // 파일 → 다운스케일 → base64
-function fileToScaledB64(file, maxEdge=1568){
+function fileToScaledB64(file, maxEdge=1280){
   return new Promise((resolve,reject)=>{
     const img=new Image(); const url=URL.createObjectURL(file);
     img.onload=()=>{
@@ -795,7 +795,7 @@ function fileToScaledB64(file, maxEdge=1568){
 }
 document.getElementById("omrFile").addEventListener("change", async e=>{
   const f=e.target.files[0]; if(!f) return;
-  try{ const r=await fileToScaledB64(f); omrB64=r.b64; omrMedia=r.media;
+  try{ const r=await fileToScaledB64(f, 1024); omrB64=r.b64; omrMedia=r.media;
     const p=document.getElementById("omrPreview"); p.src=r.dataUrl; p.classList.remove("hide");
     document.getElementById("omrLabel").textContent="✓ "+f.name;
     document.getElementById("omrDrop").classList.add("has");
@@ -803,7 +803,7 @@ document.getElementById("omrFile").addEventListener("change", async e=>{
 });
 document.getElementById("keyFile").addEventListener("change", async e=>{
   const f=e.target.files[0]; if(!f) return;
-  try{ const r=await fileToScaledB64(f); keyB64=r.b64; keyMedia=r.media;
+  try{ const r=await fileToScaledB64(f, 1024); keyB64=r.b64; keyMedia=r.media;
     const p=document.getElementById("keyPreview"); p.src=r.dataUrl; p.classList.remove("hide");
     document.getElementById("keyLabel").textContent="✓ "+f.name;
     document.getElementById("keyDrop").classList.add("has");
@@ -992,7 +992,7 @@ async function extractContent(){
       { type:"text", text:prompt }
     ];
     const res=await fetch(ANALYZE_URL,{ method:"POST", headers:await fnHeaders(),
-      body:JSON.stringify({ max_tokens:8000, messages:[{ role:"user", content }] }) });
+      body:JSON.stringify({ max_tokens:6000, messages:[{ role:"user", content }] }) });
     const out=await res.json();
     if(out.error) throw new Error(out.error);
 
