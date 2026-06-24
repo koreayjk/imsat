@@ -158,6 +158,39 @@
   .login-hero{height:140px;border-radius:14px 14px 0 0;margin:-20px -20px 20px;background-size:cover;
     background-position:center;background-image:linear-gradient(0deg,rgba(15,23,42,.45),rgba(15,23,42,.05)),var(--img-login)}
   .btn-row .btn.compact,.btn-row .btn[data-compact]{flex:0 0 auto;width:auto}
+  /* ---- 문제 출제 / 시험지 ---- */
+  .gen-topics{display:flex;flex-wrap:wrap;gap:8px;margin-top:6px}
+  .topic-chip{padding:7px 13px;border:1px solid #cbd5e1;border-radius:99px;background:#fff;
+    color:var(--mut);font-size:13px;font-weight:600;cursor:pointer}
+  .topic-chip.on{background:var(--teal);border-color:var(--teal);color:#fff}
+  .gen-cta{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;
+    background:linear-gradient(115deg,#0f172a,#1e293b);border:none;color:#fff}
+  .gen-cta .muted{color:#cbd5e1}
+  .paper{background:#fff;border:1px solid var(--line);border-radius:14px;padding:30px 30px 36px;margin-bottom:18px}
+  .paper-head{border-bottom:2px solid var(--ink);padding-bottom:14px;margin-bottom:20px}
+  .paper-head h2{margin:0;font-size:20px;font-weight:800;color:var(--ink)}
+  .paper-head .meta{font-size:12px;color:var(--mut);margin-top:5px}
+  .paper-q{padding:18px 0;border-bottom:1px solid #f1f5f9}
+  .paper-q:last-child{border-bottom:none}
+  .pq-num{display:inline-flex;align-items:center;justify-content:center;min-width:26px;height:26px;
+    border-radius:7px;background:var(--ink);color:#fff;font-size:13px;font-weight:800}
+  .pq-skill{font-size:11px;font-weight:700;color:var(--teal);background:var(--teal-bg);padding:2px 8px;border-radius:99px}
+  .pq-passage{font-size:14px;line-height:1.75;color:var(--ink2);margin:12px 0;white-space:pre-line;
+    background:#f8fafc;border-left:3px solid var(--line);padding:12px 14px;border-radius:0 8px 8px 0}
+  .pq-stem{font-size:15px;line-height:1.7;color:var(--ink);font-weight:600;margin:10px 0;white-space:pre-line}
+  .pq-choices{list-style:none;padding:0;margin:8px 0 0}
+  .pq-choices li{display:flex;gap:9px;font-size:14px;line-height:1.6;color:var(--ink2);padding:5px 0}
+  .pq-choices .ck{flex:0 0 22px;height:22px;border:1px solid #cbd5e1;border-radius:6px;display:flex;
+    align-items:center;justify-content:center;font-weight:700;font-size:12px;color:var(--mut)}
+  .paper.show-answers .pq-choices li.correct .ck{background:var(--teal);border-color:var(--teal);color:#fff}
+  .paper.show-answers .pq-choices li.correct{color:var(--ink);font-weight:600}
+  .answer-block{display:none;margin-top:12px;background:var(--amber-bg);border:1px solid #fed7aa;border-radius:10px;padding:13px 15px}
+  .paper.show-answers .answer-block{display:block}
+  .answer-block .ab-ans{font-weight:800;color:#0f766e;font-size:14px;margin-bottom:6px}
+  .answer-block .ab-exp{font-size:13px;line-height:1.65;color:#374151;white-space:pre-line}
+  .answer-block .ab-distr{font-size:12px;line-height:1.6;color:#92400e;margin-top:9px}
+  .answer-block .ab-distr b{color:#b45309}
+  @media print{ .paper{border:none;padding:0;margin:0} }
 </style>
 </head>
 <body>
@@ -210,9 +243,24 @@
       </div>
     </div>
 
+    <div class="card gen-cta">
+      <div>
+        <div style="font-weight:800;font-size:15px">📝 SAT 문제 출제</div>
+        <div class="muted" style="font-size:13px;margin-top:2px">영역·유형·난이도를 고르면 AI가 시험지(문제+정답+해설)를 만들어 줍니다.</div>
+      </div>
+      <button class="btn btn-primary" style="width:auto;padding:11px 22px;background:#fbbf24;color:#0f172a" onclick="showGenerate()">출제하기 →</button>
+    </div>
+
     <div style="display:flex;justify-content:space-between;align-items:center;margin:6px 2px 10px">
       <div class="h3" style="margin:0">학생 목록</div>
       <div class="muted" id="studentCount"></div>
+    </div>
+    <div style="display:flex;gap:10px;margin-bottom:12px">
+      <input id="studentSearch" placeholder="🔍 학생 이름 검색" oninput="renderStudents()" style="flex:1" />
+      <select id="studentSort" onchange="renderStudents()" style="width:auto;flex:0 0 auto">
+        <option value="recent">등록 최신순</option>
+        <option value="name">이름순</option>
+      </select>
     </div>
     <div id="studentList"></div>
   </section>
@@ -231,6 +279,11 @@
       <p id="stuMeta"></p>
     </div>
 
+    <div class="btn-row no-print" style="margin-bottom:16px">
+      <button class="btn btn-ghost" onclick="genFromStudent()">📝 약점 기반 출제</button>
+      <button class="btn btn-ghost" onclick="showMistakes()">📕 오답노트 PDF</button>
+    </div>
+
     <div id="signalBox"></div>
 
     <div class="card">
@@ -241,6 +294,9 @@
 
     <div class="h3" style="margin:18px 2px 10px">진단 기록</div>
     <div id="historyList"></div>
+
+    <div class="h3" style="margin:18px 2px 10px">출제한 문제 <span class="muted" style="font-weight:400">(이 학생용 시험지)</span></div>
+    <div id="studentSets"></div>
   </section>
 
   <!-- ============ 스마트 업로드 진단 ============ -->
@@ -381,6 +437,61 @@
 
   <!-- ============ 리포트 ============ -->
   <section id="view-report" class="hide"></section>
+
+  <!-- ============ 문제 출제 ============ -->
+  <section id="view-generate" class="hide">
+    <div class="btn-row no-print" style="margin-bottom:16px">
+      <button class="btn btn-ghost" style="flex:0 0 auto;width:auto;padding:9px 16px" onclick="genBack()">← 취소</button>
+    </div>
+    <div class="rpt-head" style="margin-bottom:18px">
+      <div class="ey">SAT 문제 출제</div>
+      <h2 id="genHeadTitle">새 문제 출제</h2>
+      <p id="genHeadSub">영역·유형·난이도·문항 수를 고르면 AI가 SAT 시험지를 만들어 드립니다.</p>
+    </div>
+
+    <div id="genWeakBox"></div>
+
+    <div class="card">
+      <label class="fld">영역</label>
+      <div class="seg" id="genSectionSeg">
+        <button data-sec="rw" class="on">Reading &amp; Writing</button>
+        <button data-sec="math">Math</button>
+      </div>
+
+      <label class="fld" style="margin-top:14px">세부 유형 <span class="muted">(복수 선택 · 미선택 시 영역 전반)</span></label>
+      <div class="gen-topics" id="genTopicsBox"></div>
+
+      <div class="grid2" style="margin-top:14px">
+        <div>
+          <label class="fld">난이도</label>
+          <div class="seg" id="genDiffSeg">
+            <button data-d="easy">Easy</button>
+            <button data-d="medium" class="on">Medium</button>
+            <button data-d="hard">Hard</button>
+            <button data-d="mixed">혼합</button>
+          </div>
+        </div>
+        <div>
+          <label class="fld">문항 수 <span class="muted">(1~10)</span></label>
+          <input id="genCount" type="number" min="1" max="10" value="5" />
+        </div>
+      </div>
+
+      <label class="fld" style="margin-top:14px">추가 지시 (선택)</label>
+      <textarea id="genNote" rows="2" placeholder="예: 과학 지문 위주로 · 그래프 해석 포함 · 일차함수 응용"></textarea>
+    </div>
+
+    <div id="genErr"></div>
+    <button id="genBtn" class="btn btn-primary" onclick="generateProblems()">문제 생성 → 시험지 만들기</button>
+
+    <div id="genRecentWrap" style="margin-top:24px"></div>
+  </section>
+
+  <!-- ============ 생성된 시험지 ============ -->
+  <section id="view-paper" class="hide"></section>
+
+  <!-- ============ 오답노트 묶음 ============ -->
+  <section id="view-mistakes" class="hide"></section>
 </div>
 
 <script>
@@ -415,8 +526,9 @@ let trendChartObj = null;
 let historyPollTimer = null;
 
 // ---------- 뷰 전환 ----------
+const VIEWS = ["dashboard","student","smart","form","report","generate","paper","mistakes"];
 function show(view){
-  ["dashboard","student","smart","form","report"].forEach(v=>{
+  VIEWS.forEach(v=>{
     document.getElementById("view-"+v).classList.toggle("hide", v!==view);
   });
   window.scrollTo(0,0);
@@ -493,14 +605,25 @@ function showForm(){
 function backToStudent(){ openStudent(currentStudent); }
 
 // ---------- 학생 ----------
+let allStudents = [];
 async function loadStudents(){
   const list = document.getElementById("studentList");
   if(!configured){ list.innerHTML = '<div class="muted" style="padding:20px;text-align:center">Supabase 설정 후 사용 가능합니다.</div>'; return; }
   const { data, error } = await sb.from("students").select("*").order("created_at",{ascending:false});
   if(error){ list.innerHTML = '<div class="err">학생 목록을 불러오지 못했습니다: '+error.message+'</div>'; return; }
-  document.getElementById("studentCount").textContent = (data?.length||0)+"명";
-  if(!data || data.length===0){ list.innerHTML = '<div class="muted" style="padding:20px;text-align:center">아직 등록된 학생이 없습니다. 위에서 학생을 등록하세요.</div>'; return; }
-  list.innerHTML = data.map(s=>`
+  allStudents = data||[];
+  renderStudents();
+}
+function renderStudents(){
+  const list = document.getElementById("studentList");
+  const q = (document.getElementById("studentSearch")?.value||"").trim().toLowerCase();
+  const sort = document.getElementById("studentSort")?.value || "recent";
+  let arr = allStudents.filter(s=> !q || (s.name||"").toLowerCase().includes(q));
+  if(sort==="name") arr = [...arr].sort((a,b)=> (a.name||"").localeCompare(b.name||"","ko"));
+  document.getElementById("studentCount").textContent = arr.length+"명"+(q?(" / 전체 "+allStudents.length):"");
+  if(allStudents.length===0){ list.innerHTML = '<div class="muted" style="padding:20px;text-align:center">아직 등록된 학생이 없습니다. 위에서 학생을 등록하세요.</div>'; return; }
+  if(arr.length===0){ list.innerHTML = '<div class="muted" style="padding:20px;text-align:center">검색 결과가 없습니다.</div>'; return; }
+  list.innerHTML = arr.map(s=>`
     <div class="stu-row" onclick='openStudent(${JSON.stringify(s).replace(/'/g,"&#39;")})'>
       <span class="nm">${esc(s.name)}</span>
       <span class="muted">진단 보기 →</span>
@@ -523,6 +646,7 @@ async function openStudent(s){
   document.getElementById("stuName").textContent = s.name + " 학생";
   show("student");
   await loadHistory();
+  loadStudentSets();
 }
 
 // ---------- 진단 기록 + 추세 ----------
@@ -1219,12 +1343,338 @@ function renderParentReport({ d, qs, allDiags }){
   `;
 }
 
+// ============================================================
+//  문제 출제 (SAT Problem Generator)  — analyze 패스스루 모드 재사용
+// ============================================================
+const SKILLS = {
+  rw:   ["어휘/문맥","핵심 근거 찾기","추론","글의 구조/목적","문법/문장 규칙","수사적 종합","데이터 해석(그래프/표)"],
+  math: ["대수(Algebra)","고급 수학(Advanced Math)","문제 해결·데이터 분석","기하·삼각법","함정 선택지 대비"]
+};
+const DIFF_LABEL = { easy:"Easy", medium:"Medium", hard:"Hard", mixed:"혼합" };
+
+let genSection = "rw";
+let genTopics = [];
+let genDifficulty = "medium";
+let genStudent = null;     // {id,name} 또는 null(일반 출제)
+let genWeakNote = "";
+let currentPaper = null;   // {title,section,difficulty,topics,questions,studentName,savedId}
+let paperSaveWarn = "";
+let paperReturn = null;    // 시험지 화면에서 "돌아가기" 동작
+
+// 세그먼트 이벤트 (정적 요소 — 1회 바인딩)
+document.querySelectorAll("#genSectionSeg button").forEach(b=>b.addEventListener("click",()=>{
+  genSection=b.dataset.sec; genTopics=[];
+  document.querySelectorAll("#genSectionSeg button").forEach(x=>x.classList.toggle("on",x===b));
+  renderGenTopics();
+}));
+document.querySelectorAll("#genDiffSeg button").forEach(b=>b.addEventListener("click",()=>{
+  genDifficulty=b.dataset.d;
+  document.querySelectorAll("#genDiffSeg button").forEach(x=>x.classList.toggle("on",x===b));
+}));
+
+function renderGenTopics(){
+  const box=document.getElementById("genTopicsBox");
+  box.innerHTML=(SKILLS[genSection]||[]).map(t=>
+    `<button type="button" class="topic-chip ${genTopics.includes(t)?'on':''}" onclick="toggleTopic('${t.replace(/'/g,"\\'")}')">${esc(t)}</button>`
+  ).join("");
+}
+function toggleTopic(t){
+  const i=genTopics.indexOf(t);
+  if(i>=0) genTopics.splice(i,1); else genTopics.push(t);
+  renderGenTopics();
+}
+
+function setGenSeg(section, diff){
+  genSection=section; genDifficulty=diff;
+  document.querySelectorAll("#genSectionSeg button").forEach(x=>x.classList.toggle("on",x.dataset.sec===section));
+  document.querySelectorAll("#genDiffSeg button").forEach(x=>x.classList.toggle("on",x.dataset.d===diff));
+}
+
+function showGenerate(student=null, weakTypes=[], section="rw"){
+  genStudent = student;
+  genWeakNote = "";
+  genTopics = [];
+  setGenSeg(section, "medium");
+  document.getElementById("genCount").value="5";
+  document.getElementById("genNote").value="";
+  document.getElementById("genErr").innerHTML="";
+  document.getElementById("genHeadTitle").textContent = student ? (student.name+" 학생 맞춤 출제") : "새 문제 출제";
+  document.getElementById("genHeadSub").textContent = student
+    ? "이 학생의 누적 약점 유형을 집중 공략하는 문제를 만듭니다."
+    : "영역·유형·난이도·문항 수를 고르면 AI가 SAT 시험지를 만들어 드립니다.";
+  const wbox=document.getElementById("genWeakBox");
+  if(weakTypes && weakTypes.length){
+    genWeakNote = weakTypes.join(", ");
+    genTopics = (SKILLS[genSection]||[]).filter(t=>weakTypes.includes(t));
+    wbox.innerHTML='<div class="card" style="background:var(--rose-bg);border-color:#fecdd3">'
+      +'<div style="font-weight:800;color:#be123c;font-size:14px;margin-bottom:4px">⚠️ 반복 약점 집중</div>'
+      +'<div class="muted" style="font-size:13px">진단에서 누적된 약점: <b>'+esc(genWeakNote)+'</b><br>이 유형을 겨냥한 문제로 출제합니다. 아래에서 유형·난이도를 더 조절할 수 있어요.</div></div>';
+  } else { wbox.innerHTML=""; }
+  renderGenTopics();
+  loadRecentSets();
+  show("generate");
+}
+function genBack(){ if(genStudent) openStudent(genStudent); else showDashboard(); }
+
+// 학생 카드 → 약점 기반 출제
+async function genFromStudent(){
+  if(!currentStudent) return;
+  const { data } = await sb.from("diagnostics").select("*").eq("student_id",currentStudent.id);
+  const done=(data||[]).filter(d=>(d.status||'done')==='done');
+  const counts={}, secCount={rw:0,math:0};
+  done.forEach(d=>{
+    secCount[d.section]=(secCount[d.section]||0)+1;
+    Object.entries(d.error_type_counts||{}).forEach(([t,n])=>counts[t]=(counts[t]||0)+n);
+  });
+  const weak=Object.entries(counts).sort((a,b)=>b[1]-a[1]).slice(0,4).map(x=>x[0]);
+  const sec = (secCount.math>secCount.rw) ? "math" : "rw";
+  if(weak.length===0){
+    alert("아직 분석된 오답 유형이 없습니다. 먼저 진단을 1회 이상 완료해 주세요. (일반 출제로 진행합니다)");
+    showGenerate(currentStudent, [], sec); return;
+  }
+  showGenerate(currentStudent, weak, sec);
+}
+
+function buildGenPrompt(secLabel, topicStr, count, diffLabel, note, weakNote){
+  return `당신은 College Board 공식 Digital SAT 출제 전문가입니다. 아래 조건에 맞춰 SAT 문제를 새로 출제하세요. 기존 시험 문제를 그대로 베끼지 말고 새로 창작하되, 실제 시험과 동일한 형식·난이도·문체를 유지하세요.
+
+[출제 조건]
+영역: ${secLabel}
+세부 유형: ${topicStr}
+난이도: ${diffLabel}
+문항 수: ${count}개
+${weakNote?("학생이 반복적으로 약한 유형(집중 공략): "+weakNote+"\n"):""}${note?("추가 요청: "+note+"\n"):""}
+[출제 규칙]
+- 4지선다(A~D) 객관식. 정답은 정확히 1개.
+- 문제 본문(passage·stem·choices)은 모두 영어로 작성(실제 SAT와 동일). 단, 해설(explanation·distractors)은 한국어로.
+- Reading & Writing: 필요하면 짧은 지문(passage, 25~150단어) + 질문 + 선택지. 문법 문항은 밑줄/빈칸이 포함된 문장을 stem에 넣고 passage는 비워도 됩니다.
+- Math: 지문이 필요 없으면 passage는 빈 문자열. 수식은 x^2, sqrt(), <=, >=, π, ° 처럼 읽기 쉬운 텍스트로 표기.
+- ${diffLabel==="혼합"?"난이도를 쉬움~어려움으로 고르게 섞으세요.":"모든 문항을 지정 난이도로 통일하세요."}
+- 정답(answer)이 A·B·C·D 한쪽에 치우치지 않게 분산하세요.
+- explanation: 정답이 왜 정답인지 단계별로 한국어로. distractors: 정답을 뺀 각 선택지가 왜 오답(또는 함정)인지 한국어로 짧게.
+
+[출력] 순수 JSON만 출력(설명·백틱 금지):
+{"title":"시험지 제목(한국어, 영역·유형 반영)","questions":[{"number":1,"skill":"세부 유형(한국어)","difficulty":"easy|medium|hard","passage":"지문 또는 빈 문자열","stem":"질문(영어)","choices":{"A":"...","B":"...","C":"...","D":"..."},"answer":"A","explanation":"정답 해설(한국어)","distractors":{"B":"오답 이유","C":"오답 이유","D":"오답 이유"}}]}`;
+}
+
+function parseModelJSON(raw){
+  let t=String(raw||"").replace(/```json|```/g,"").trim();
+  try{ return JSON.parse(t); }catch(_e){}
+  const s=t.indexOf("{"), e=t.lastIndexOf("}");
+  if(s>=0 && e>s){ try{ return JSON.parse(t.slice(s,e+1)); }catch(_e2){} }
+  return null;
+}
+
+async function generateProblems(){
+  const errBox=document.getElementById("genErr"); errBox.innerHTML="";
+  if(!configured){ errBox.innerHTML='<div class="err">Supabase 설정을 먼저 완료하세요.</div>'; return; }
+  let count=parseInt(document.getElementById("genCount").value,10);
+  if(isNaN(count)||count<1) count=5;
+  if(count>10) count=10;
+  const note=document.getElementById("genNote").value.trim();
+  const secLabel=SECTION_LABEL[genSection];
+  const diffLabel=DIFF_LABEL[genDifficulty]||genDifficulty;
+  const topicStr=genTopics.length? genTopics.join(", ") : "영역 전반";
+
+  const btn=document.getElementById("genBtn"); btn.disabled=true; btn.textContent="문제 생성 중… ("+count+"문항 · 20~50초)";
+  try{
+    const prompt=buildGenPrompt(secLabel, topicStr, count, diffLabel, note, genWeakNote);
+    const res=await fetch(ANALYZE_URL,{ method:"POST", headers:await fnHeaders(),
+      body:JSON.stringify({ max_tokens:Math.min(8000, 1100*count+1500),
+        messages:[{ role:"user", content:[{ type:"text", text:prompt }] }] }) });
+    const out=await res.json();
+    if(out.error) throw new Error(out.error);
+    const data=parseModelJSON(out.text||"");
+    if(!data || !Array.isArray(data.questions) || data.questions.length===0){
+      throw new Error("문제를 생성하지 못했습니다. 문항 수를 줄이거나 잠시 후 다시 시도해 주세요.");
+    }
+    currentPaper={
+      title: data.title || (secLabel+" 연습 시험지"),
+      section: genSection, difficulty: genDifficulty,
+      topics: genTopics, questions: data.questions,
+      studentName: genStudent? genStudent.name : null, savedId:null
+    };
+    paperSaveWarn="";
+    try{ await savePaper(); }catch(se){ paperSaveWarn=String(se.message||se); }
+    paperReturn = genStudent ? (st=>()=>openStudent(st))(genStudent) : showDashboard;
+    renderPaper();
+    show("paper");
+  }catch(e){
+    errBox.innerHTML='<div class="err">생성에 실패했습니다.<br><span class="muted">'+esc(String(e.message||e))+'</span></div>';
+  }finally{
+    btn.disabled=false; btn.textContent="문제 생성 → 시험지 만들기";
+  }
+}
+
+async function savePaper(){
+  const p=currentPaper;
+  const { data, error } = await sb.from("problem_sets").insert({
+    student_id: genStudent? genStudent.id : null,
+    title: p.title, section: p.section, difficulty: p.difficulty,
+    topics: p.topics, questions: p.questions
+  }).select().single();
+  if(error) throw new Error(error.message);
+  p.savedId=data.id;
+}
+
+function renderPaper(){
+  const p=currentPaper; const v=document.getElementById("view-paper");
+  const date=new Date().toLocaleDateString("ko-KR",{year:"numeric",month:"long",day:"numeric"});
+  const qhtml=(p.questions||[]).map((q,idx)=>{
+    const n=q.number||idx+1;
+    const choices=q.choices||{};
+    const ans=String(q.answer||"").toUpperCase();
+    const cl=["A","B","C","D"].map(c=> choices[c]===undefined ? "" :
+      `<li class="${ans===c?'correct':''}"><span class="ck">${c}</span><span>${esc(choices[c])}</span></li>`).join("");
+    const distr=q.distractors||{};
+    const distrHtml=["A","B","C","D"].filter(c=>c!==ans && distr[c]).map(c=>`<div><b>${c})</b> ${esc(distr[c])}</div>`).join("");
+    return `<div class="paper-q">
+      <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
+        <span class="pq-num">${esc(String(n))}</span>
+        ${q.skill?`<span class="pq-skill">${esc(q.skill)}</span>`:""}
+        ${q.difficulty?`<span class="muted" style="font-size:11px">${esc(DIFF_LABEL[q.difficulty]||q.difficulty)}</span>`:""}
+      </div>
+      ${q.passage&&String(q.passage).trim()?`<div class="pq-passage">${esc(q.passage)}</div>`:""}
+      <div class="pq-stem">${esc(q.stem||"")}</div>
+      <ul class="pq-choices">${cl}</ul>
+      <div class="answer-block">
+        <div class="ab-ans">정답: ${esc(ans||"-")}</div>
+        <div class="ab-exp">${esc(q.explanation||"")}</div>
+        ${distrHtml?`<div class="ab-distr"><b>오답 풀이</b><br>${distrHtml}</div>`:""}
+      </div>
+    </div>`;
+  }).join("");
+  const meta=`${SECTION_LABEL[p.section]||p.section} · 난이도 ${DIFF_LABEL[p.difficulty]||p.difficulty} · ${(p.questions||[]).length}문항${p.studentName?(" · "+esc(p.studentName)+" 학생"):""} · ${date}`;
+  const warn = paperSaveWarn
+    ? `<div class="config-warn">⚠️ 시험지는 표시되지만 저장에 실패했습니다 (<code>${esc(paperSaveWarn)}</code>). <b>problem_sets</b> 테이블이 없으면 저장소의 <code>supabase_problem_sets.sql</code> 을 Supabase SQL Editor에서 한 번 실행하세요.</div>`
+    : "";
+  v.innerHTML=`
+    <div class="btn-row no-print" style="margin-bottom:16px;flex-wrap:wrap">
+      <button class="btn btn-ghost" style="flex:0 0 auto;width:auto;padding:9px 16px" onclick="paperBack()">← 돌아가기</button>
+      <button class="btn btn-ghost" id="toggleAnsBtn" onclick="togglePaperAnswers()">해설 보기</button>
+      <button class="btn btn-ghost" onclick="printPaper(false)">🖨 학생용(문제만)</button>
+      <button class="btn btn-primary" onclick="printPaper(true)">🖨 해설 포함 인쇄</button>
+    </div>
+    ${warn}
+    <div class="paper" id="paperEl">
+      <div class="paper-head"><h2>${esc(p.title)}</h2><div class="meta">${meta} · INTO유학센터</div></div>
+      ${qhtml}
+    </div>`;
+}
+function togglePaperAnswers(){
+  const el=document.getElementById("paperEl");
+  const on=el.classList.toggle("show-answers");
+  document.getElementById("toggleAnsBtn").textContent= on?"해설 숨기기":"해설 보기";
+}
+function printPaper(withAns){
+  const el=document.getElementById("paperEl");
+  el.classList.toggle("show-answers", withAns);
+  const t=document.getElementById("toggleAnsBtn"); if(t) t.textContent= withAns?"해설 숨기기":"해설 보기";
+  window.print();
+}
+function paperBack(){ (paperReturn||showDashboard)(); }
+
+// ---------- 출제 보관함 ----------
+function setRow(s, origin){
+  const date=new Date(s.created_at).toLocaleDateString("ko-KR",{month:"short",day:"numeric"});
+  return `<div class="hist-row" onclick="openProblemSet('${s.id}','${origin}')"><div>
+      <div style="font-weight:700;color:var(--ink)">${esc(s.title||"시험지")}</div>
+      <div class="muted">${date} · ${SECTION_LABEL[s.section]||s.section} · ${DIFF_LABEL[s.difficulty]||s.difficulty||""}</div></div>
+    <div class="hist-right"><span class="pill pill-teal">열기</span>
+      <button class="histdel" title="삭제" onclick="event.stopPropagation();deleteProblemSet('${s.id}')">✕</button></div></div>`;
+}
+async function loadStudentSets(){
+  const box=document.getElementById("studentSets"); if(!box) return;
+  const { data, error } = await sb.from("problem_sets")
+    .select("id,title,section,difficulty,created_at").eq("student_id",currentStudent.id).order("created_at",{ascending:false});
+  if(error){ box.innerHTML='<div class="muted" style="padding:12px">출제 보관함을 불러올 수 없습니다. (problem_sets 테이블이 필요합니다 — supabase_problem_sets.sql 실행)</div>'; return; }
+  if(!data||!data.length){ box.innerHTML='<div class="muted" style="padding:16px;text-align:center">아직 출제한 문제가 없습니다. 위 “📝 약점 기반 출제”로 시작하세요.</div>'; return; }
+  box.innerHTML=data.map(s=>setRow(s,'student')).join("");
+}
+async function loadRecentSets(){
+  const wrap=document.getElementById("genRecentWrap"); if(!wrap) return;
+  const { data, error } = await sb.from("problem_sets")
+    .select("id,title,section,difficulty,created_at").order("created_at",{ascending:false}).limit(8);
+  if(error || !data || !data.length){ wrap.innerHTML=""; return; }
+  wrap.innerHTML='<div class="h3" style="margin:0 2px 10px">최근 출제 보관함</div>'+data.map(s=>setRow(s,'generate')).join("");
+}
+async function openProblemSet(id, origin){
+  show("paper");
+  document.getElementById("view-paper").innerHTML='<div class="loading"><div class="spinner"></div>시험지 불러오는 중…</div>';
+  const { data, error } = await sb.from("problem_sets").select("*").eq("id",id).single();
+  if(error || !data){ document.getElementById("view-paper").innerHTML='<div class="err">시험지를 불러오지 못했습니다.</div>'; return; }
+  currentPaper={ title:data.title, section:data.section, difficulty:data.difficulty,
+    topics:data.topics||[], questions:data.questions||[], studentName:null, savedId:data.id };
+  paperSaveWarn="";
+  if(origin==='student' && currentStudent){ const st=currentStudent; paperReturn=()=>openStudent(st); }
+  else if(origin==='generate'){ paperReturn=()=>show("generate"); }
+  else paperReturn=showDashboard;
+  renderPaper();
+}
+async function deleteProblemSet(id){
+  if(!confirm("이 시험지를 삭제할까요? 되돌릴 수 없습니다.")) return;
+  const { error } = await sb.from("problem_sets").delete().eq("id",id);
+  if(error){ alert("삭제 실패: "+error.message); return; }
+  loadStudentSets(); loadRecentSets();
+}
+
+// ============================================================
+//  오답노트 묶음 (학생별 누적 오답 → 인쇄용)
+// ============================================================
+async function showMistakes(){
+  if(!currentStudent) return;
+  show("mistakes");
+  const v=document.getElementById("view-mistakes");
+  v.innerHTML='<div class="loading"><div class="spinner"></div>오답노트 모으는 중…</div>';
+  const { data:diags } = await sb.from("diagnostics").select("*")
+    .eq("student_id",currentStudent.id).order("created_at",{ascending:true});
+  const done=(diags||[]).filter(d=>(d.status||'done')==='done');
+  const ids=done.map(d=>d.id);
+  let qs=[];
+  if(ids.length){ const { data:q } = await sb.from("diagnostic_questions").select("*").in("diagnostic_id",ids); qs=q||[]; }
+  renderMistakes(done, qs);
+}
+function renderMistakes(done, qs){
+  const v=document.getElementById("view-mistakes");
+  const byDiag={}; qs.forEach(q=>{ (byDiag[q.diagnostic_id]=byDiag[q.diagnostic_id]||[]).push(q); });
+  let body="", totalWrong=0;
+  done.forEach(d=>{
+    const list=byDiag[d.id]||[]; if(!list.length) return;
+    totalWrong+=list.length;
+    const date=new Date(d.created_at).toLocaleDateString("ko-KR",{year:"numeric",month:"short",day:"numeric"});
+    body+=`<div class="paper-q"><div style="font-weight:800;color:var(--ink);margin-bottom:6px">${esc(d.exam_name||"모의고사")} <span class="muted" style="font-weight:400">· ${SECTION_LABEL[d.section]||d.section} · ${date}</span></div>`;
+    list.forEach(q=>{
+      body+=`<div style="margin:10px 0 16px;padding-left:12px;border-left:3px solid #fb7185">
+        <div style="font-weight:700;color:var(--ink)">문항 ${esc(q.number)}
+          <span class="pill pill-rose">학생 ${esc(q.student_answer)}</span>
+          <span class="pill pill-teal">정답 ${esc(q.correct_answer)}</span>
+          ${q.error_type?`<span class="pill pill-amber">${esc(q.error_type)}</span>`:""}</div>
+        ${q.why_chose?`<div style="font-size:13px;margin-top:6px;line-height:1.6"><b>오답 이유</b> · ${esc(q.why_chose)}</div>`:""}
+        ${q.trap_intent?`<div style="font-size:13px;margin-top:4px;line-height:1.6"><b>함정 의도</b> · ${esc(q.trap_intent)}</div>`:""}
+        ${q.correct_logic?`<div style="font-size:13px;margin-top:4px;line-height:1.6"><b>정답 논리</b> · ${esc(q.correct_logic)}</div>`:""}
+      </div>`;
+    });
+    body+=`</div>`;
+  });
+  if(!body) body='<div class="muted" style="padding:24px;text-align:center">아직 분석된 오답이 없습니다. 진단을 먼저 완료해 주세요.</div>';
+  v.innerHTML=`
+    <div class="btn-row no-print" style="margin-bottom:16px">
+      <button class="btn btn-ghost" style="flex:0 0 auto;width:auto;padding:9px 16px" onclick="openStudent(currentStudent)">← 학생 카드</button>
+      <button class="btn btn-primary" onclick="window.print()">🖨 오답노트 인쇄 / PDF</button>
+    </div>
+    <div class="paper">
+      <div class="paper-head"><h2>${esc(currentStudent.name)} 학생 · 오답노트</h2>
+        <div class="meta">누적 오답 ${totalWrong}문항 · 진단 ${done.length}회 · INTO유학센터</div></div>
+      ${body}
+    </div>`;
+}
+
 // ---------- util ----------
 function esc(s){ return String(s==null?"":s).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;"); }
 
 // ---------- 인증 (교사 로그인) ----------
 function showAuth(){
-  ["dashboard","student","smart","form","report"].forEach(v=>document.getElementById("view-"+v).classList.add("hide"));
+  VIEWS.forEach(v=>document.getElementById("view-"+v).classList.add("hide"));
   document.getElementById("view-auth").classList.remove("hide");
   window.scrollTo(0,0);
 }
