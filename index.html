@@ -7,6 +7,9 @@
 <link rel="preconnect" href="https://cdn.jsdelivr.net" />
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.css" />
+<script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.js"></script>
+<script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/contrib/auto-render.min.js"></script>
 <style>
   :root{
     --bg:#f7f8fa; --card:#fff; --ink:#0f172a; --ink2:#334155; --mut:#64748b;
@@ -170,6 +173,11 @@
   .paper-head{border-bottom:2px solid var(--ink);padding-bottom:14px;margin-bottom:20px}
   .paper-head h2{margin:0;font-size:20px;font-weight:800;color:var(--ink)}
   .paper-head .meta{font-size:12px;color:var(--mut);margin-top:5px}
+  .paper-fill{display:flex;gap:26px;flex-wrap:wrap;font-size:13px;color:var(--ink2);
+    margin:0 0 18px;padding-bottom:14px;border-bottom:1px dashed var(--line)}
+  .paper-fill b{color:var(--ink)}
+  .paper .katex{font-size:1.05em}
+  .pq-stem .katex,.pq-choices .katex{font-size:1em}
   .paper-q{padding:18px 0;border-bottom:1px solid #f1f5f9}
   .paper-q:last-child{border-bottom:none}
   .pq-num{display:inline-flex;align-items:center;justify-content:center;min-width:26px;height:26px;
@@ -472,8 +480,13 @@
           </div>
         </div>
         <div>
-          <label class="fld">문항 수 <span class="muted">(1~10)</span></label>
-          <input id="genCount" type="number" min="1" max="10" value="5" />
+          <label class="fld">문항 수 <span class="muted">(1~20)</span></label>
+          <input id="genCount" type="number" min="1" max="20" value="5" />
+          <div style="display:flex;gap:6px;margin-top:6px">
+            <button type="button" class="topic-chip" onclick="document.getElementById('genCount').value=5">5문항</button>
+            <button type="button" class="topic-chip" onclick="document.getElementById('genCount').value=10">10문항</button>
+            <button type="button" class="topic-chip" onclick="document.getElementById('genCount').value=20">한 모듈(20)</button>
+          </div>
         </div>
       </div>
 
@@ -1039,11 +1052,17 @@ function confirmVerify(){
   const errBox=document.getElementById("verifyErr"); errBox.innerHTML="";
   const wrong=verifyRows.filter(vRowWrong);
   if(wrong.length===0){ errBox.innerHTML='<div class="err">오답으로 표시된 문항이 없습니다. 채점을 확인해 주세요.</div>'; return; }
-  // 오답 문항을 formQuestions로 준비 (내용은 이후 추출/입력)
-  formQuestions=wrong.map(r=>({ number:r.number, student:r.student, correct:r.correct, content:"" }));
+  // 오답 문항을 formQuestions로 준비 (시험지 기반이면 content 이미 존재)
+  formQuestions=wrong.map(r=>({ number:r.number, student:r.student, correct:r.correct, content:r.content||"" }));
   currentSection=smartSection; syncSectionSeg();
   document.getElementById("examName").value=document.getElementById("sExamName").value;
   document.getElementById("score").value=document.getElementById("sScore").value;
+  // 모든 문항 내용이 이미 있으면(시험지로 진단) 추출 단계 건너뛰고 바로 폼으로
+  if(formQuestions.every(q=>q.content && q.content.trim())){
+    saveDraft('form');
+    goToForm('오답 '+formQuestions.length+'문항이 준비됐습니다. 내용을 확인한 뒤 “오답 진단 시작”을 누르세요.');
+    return;
+  }
   // 추출 단계로
   bookImgs=[];
   document.getElementById("bookThumbs").innerHTML="";
@@ -1447,8 +1466,8 @@ ${weakNote?("학생이 반복적으로 약한 유형(집중 공략): "+weakNote+
 [출제 규칙]
 - 4지선다(A~D) 객관식. 정답은 정확히 1개.
 - 문제 본문(passage·stem·choices)은 모두 영어로 작성(실제 SAT와 동일). 단, 해설(explanation·distractors)은 한국어로.
-- Reading & Writing: 필요하면 짧은 지문(passage, 25~150단어) + 질문 + 선택지. 문법 문항은 밑줄/빈칸이 포함된 문장을 stem에 넣고 passage는 비워도 됩니다.
-- Math: 지문이 필요 없으면 passage는 빈 문자열. 수식은 x^2, sqrt(), <=, >=, π, ° 처럼 읽기 쉬운 텍스트로 표기.
+- Reading & Writing: 필요하면 짧은 지문(passage, 25~150단어) + 질문 + 선택지. 문법 문항은 밑줄/빈칸이 포함된 문장을 stem에 넣고 passage는 비워도 됩니다. (R&W는 수식 LaTeX 불필요)
+- Math: 지문이 필요 없으면 passage는 빈 문자열. 모든 수식·숫자식·기호는 LaTeX로 작성하고 인라인 수식은 \\( ... \\) 로, 별도 줄 수식은 $$ ... $$ 로 감싸세요. 예: \\(x^2+3x-4=0\\), \\(\\sqrt{2}\\), \\(\\le\\), \\(\\frac{a}{b}\\). 선택지의 숫자·식도 LaTeX로 표기. (JSON 문자열 안에서는 백슬래시를 \\\\ 로 이스케이프할 것)
 - ${diffLabel==="혼합"?"난이도를 쉬움~어려움으로 고르게 섞으세요.":"모든 문항을 지정 난이도로 통일하세요."}
 - 정답(answer)이 A·B·C·D 한쪽에 치우치지 않게 분산하세요.
 - explanation: 정답이 왜 정답인지 단계별로 한국어로. distractors: 정답을 뺀 각 선택지가 왜 오답(또는 함정)인지 한국어로 짧게.
@@ -1457,12 +1476,59 @@ ${weakNote?("학생이 반복적으로 약한 유형(집중 공략): "+weakNote+
 {"title":"시험지 제목(한국어, 영역·유형 반영)","questions":[{"number":1,"skill":"세부 유형(한국어)","difficulty":"easy|medium|hard","passage":"지문 또는 빈 문자열","stem":"질문(영어)","choices":{"A":"...","B":"...","C":"...","D":"..."},"answer":"A","explanation":"정답 해설(한국어)","distractors":{"B":"오답 이유","C":"오답 이유","D":"오답 이유"}}]}`;
 }
 
+// JSON 안의 잘못된 백슬래시 이스케이프(\sqrt 등 LaTeX)를 \\ 로 보정
+function sanitizeJSONBackslashes(t){ return t.replace(/\\(?!["\\/bfnrtu])/g, "\\\\"); }
 function parseModelJSON(raw){
   let t=String(raw||"").replace(/```json|```/g,"").trim();
-  try{ return JSON.parse(t); }catch(_e){}
   const s=t.indexOf("{"), e=t.lastIndexOf("}");
-  if(s>=0 && e>s){ try{ return JSON.parse(t.slice(s,e+1)); }catch(_e2){} }
+  if(s>=0 && e>s) t=t.slice(s,e+1);
+  for(const cand of [t, sanitizeJSONBackslashes(t)]){
+    try{ return JSON.parse(cand); }catch(_e){}
+  }
   return null;
+}
+
+// KaTeX 수식 렌더 (수식 포함 시)
+function typesetMath(el){
+  if(el && window.renderMathInElement){
+    try{ renderMathInElement(el, { delimiters:[
+      {left:"$$",right:"$$",display:true},
+      {left:"\\[",right:"\\]",display:true},
+      {left:"\\(",right:"\\)",display:false}
+    ], throwOnError:false }); }catch(_e){}
+  }
+}
+
+// 공통 생성 루틴 — 큰 문항 수는 5문항씩 배치로 나눠 호출(토큰 잘림 방지)
+async function runGeneration(opts, btn){
+  const { section, topics, difficulty, count, note, weakNote, student, variation } = opts;
+  const secLabel=SECTION_LABEL[section];
+  const diffLabel=DIFF_LABEL[difficulty]||difficulty;
+  const topicStr=(topics&&topics.length)? topics.join(", ") : "영역 전반";
+  const BATCH=5;
+  const batches=[]; let rem=count; while(rem>0){ batches.push(Math.min(BATCH,rem)); rem-=BATCH; }
+  let all=[], title=null;
+  for(let bi=0; bi<batches.length; bi++){
+    const bn=batches[bi];
+    if(btn) btn.textContent = batches.length>1
+      ? ("문제 생성 중… "+(bi+1)+"/"+batches.length+" 묶음")
+      : ("문제 생성 중… ("+bn+"문항 · 20~50초)");
+    const vnote=(variation?"이전에 출제한 것과 겹치지 않는 완전히 새로운 문제로 출제하세요. ":"")+(note||"");
+    const prompt=buildGenPrompt(secLabel, topicStr, bn, diffLabel, vnote, weakNote);
+    const res=await fetch(ANALYZE_URL,{ method:"POST", headers:await fnHeaders(),
+      body:JSON.stringify({ max_tokens:Math.min(8000, 1100*bn+1200),
+        messages:[{ role:"user", content:[{ type:"text", text:prompt }] }] }) });
+    const out=await res.json();
+    if(out.error) throw new Error(out.error);
+    const data=parseModelJSON(out.text||"");
+    if(!data || !Array.isArray(data.questions)) throw new Error("응답을 해석하지 못했습니다. 잠시 후 다시 시도해 주세요.");
+    if(!title) title=data.title;
+    all=all.concat(data.questions);
+  }
+  if(all.length===0) throw new Error("문제를 생성하지 못했습니다. 다시 시도해 주세요.");
+  all=all.slice(0,count).map((q,i)=>({ ...q, number:i+1 }));
+  return { title: title || (secLabel+" 연습 시험지"), section, difficulty, topics:topics||[],
+    questions: all, studentName: student? student.name : null, savedId:null };
 }
 
 async function generateProblems(){
@@ -1470,30 +1536,12 @@ async function generateProblems(){
   if(!configured){ errBox.innerHTML='<div class="err">Supabase 설정을 먼저 완료하세요.</div>'; return; }
   let count=parseInt(document.getElementById("genCount").value,10);
   if(isNaN(count)||count<1) count=5;
-  if(count>10) count=10;
+  if(count>20) count=20;
   const note=document.getElementById("genNote").value.trim();
-  const secLabel=SECTION_LABEL[genSection];
-  const diffLabel=DIFF_LABEL[genDifficulty]||genDifficulty;
-  const topicStr=genTopics.length? genTopics.join(", ") : "영역 전반";
-
-  const btn=document.getElementById("genBtn"); btn.disabled=true; btn.textContent="문제 생성 중… ("+count+"문항 · 20~50초)";
+  const btn=document.getElementById("genBtn"); btn.disabled=true;
   try{
-    const prompt=buildGenPrompt(secLabel, topicStr, count, diffLabel, note, genWeakNote);
-    const res=await fetch(ANALYZE_URL,{ method:"POST", headers:await fnHeaders(),
-      body:JSON.stringify({ max_tokens:Math.min(8000, 1100*count+1500),
-        messages:[{ role:"user", content:[{ type:"text", text:prompt }] }] }) });
-    const out=await res.json();
-    if(out.error) throw new Error(out.error);
-    const data=parseModelJSON(out.text||"");
-    if(!data || !Array.isArray(data.questions) || data.questions.length===0){
-      throw new Error("문제를 생성하지 못했습니다. 문항 수를 줄이거나 잠시 후 다시 시도해 주세요.");
-    }
-    currentPaper={
-      title: data.title || (secLabel+" 연습 시험지"),
-      section: genSection, difficulty: genDifficulty,
-      topics: genTopics, questions: data.questions,
-      studentName: genStudent? genStudent.name : null, savedId:null
-    };
+    currentPaper=await runGeneration({ section:genSection, topics:genTopics, difficulty:genDifficulty,
+      count, note, weakNote:genWeakNote, student:genStudent, variation:false }, btn);
     paperSaveWarn="";
     try{ await savePaper(); }catch(se){ paperSaveWarn=String(se.message||se); }
     paperReturn = genStudent ? (st=>()=>openStudent(st))(genStudent) : showDashboard;
@@ -1504,6 +1552,22 @@ async function generateProblems(){
   }finally{
     btn.disabled=false; btn.textContent="문제 생성 → 시험지 만들기";
   }
+}
+
+// 변형 출제 — 같은 조건으로 새 문제
+async function regenerateSimilar(){
+  if(!currentPaper) return;
+  const p=currentPaper;
+  const btn=document.getElementById("regenBtn"); if(btn){ btn.disabled=true; btn.textContent="새 문제 생성 중…"; }
+  try{
+    currentPaper=await runGeneration({ section:p.section, topics:p.topics||[], difficulty:p.difficulty,
+      count:(p.questions||[]).length||5, note:"", weakNote:genStudent?genWeakNote:"",
+      student:genStudent, variation:true }, btn);
+    paperSaveWarn="";
+    try{ await savePaper(); }catch(se){ paperSaveWarn=String(se.message||se); }
+    renderPaper(); window.scrollTo(0,0);
+  }catch(e){ alert("변형 출제 실패: "+String(e.message||e)); }
+  finally{ if(btn){ btn.disabled=false; btn.textContent="🔄 비슷하게 새 문제"; } }
 }
 
 async function savePaper(){
@@ -1548,6 +1612,7 @@ function renderPaper(){
   const warn = paperSaveWarn
     ? `<div class="config-warn">⚠️ 시험지는 표시되지만 저장에 실패했습니다 (<code>${esc(paperSaveWarn)}</code>). <b>problem_sets</b> 테이블이 없으면 저장소의 <code>supabase_problem_sets.sql</code> 을 Supabase SQL Editor에서 한 번 실행하세요.</div>`
     : "";
+  const nameFill = p.studentName ? esc(p.studentName) : "____________";
   v.innerHTML=`
     <div class="btn-row no-print" style="margin-bottom:16px;flex-wrap:wrap">
       <button class="btn btn-ghost" style="flex:0 0 auto;width:auto;padding:9px 16px" onclick="paperBack()">← 돌아가기</button>
@@ -1555,11 +1620,17 @@ function renderPaper(){
       <button class="btn btn-ghost" onclick="printPaper(false)">🖨 학생용(문제만)</button>
       <button class="btn btn-primary" onclick="printPaper(true)">🖨 해설 포함 인쇄</button>
     </div>
+    <div class="btn-row no-print" style="margin-bottom:16px;flex-wrap:wrap">
+      <button class="btn btn-ghost" id="regenBtn" onclick="regenerateSimilar()">🔄 비슷하게 새 문제</button>
+      <button class="btn btn-ghost" onclick="startDiagnosisFromPaper()">✏️ 이 시험지로 진단</button>
+    </div>
     ${warn}
     <div class="paper" id="paperEl">
       <div class="paper-head"><h2>${esc(p.title)}</h2><div class="meta">${meta} · INTO유학센터</div></div>
+      <div class="paper-fill"><span>이름 <b>${nameFill}</b></span><span>날짜 ____________</span><span>점수 ______ / ${(p.questions||[]).length}</span></div>
       ${qhtml}
     </div>`;
+  typesetMath(document.getElementById("paperEl"));
 }
 function togglePaperAnswers(){
   const el=document.getElementById("paperEl");
@@ -1604,11 +1675,11 @@ async function openProblemSet(id, origin){
   const { data, error } = await sb.from("problem_sets").select("*").eq("id",id).single();
   if(error || !data){ document.getElementById("view-paper").innerHTML='<div class="err">시험지를 불러오지 못했습니다.</div>'; return; }
   currentPaper={ title:data.title, section:data.section, difficulty:data.difficulty,
-    topics:data.topics||[], questions:data.questions||[], studentName:null, savedId:data.id };
+    topics:data.topics||[], questions:data.questions||[],
+    studentName:(origin==='student'&&currentStudent)?currentStudent.name:null, savedId:data.id };
   paperSaveWarn="";
-  if(origin==='student' && currentStudent){ const st=currentStudent; paperReturn=()=>openStudent(st); }
-  else if(origin==='generate'){ paperReturn=()=>show("generate"); }
-  else paperReturn=showDashboard;
+  if(origin==='student' && currentStudent){ const st=currentStudent; genStudent=st; genWeakNote=""; paperReturn=()=>openStudent(st); }
+  else { genStudent=null; if(origin==='generate') paperReturn=()=>show("generate"); else paperReturn=showDashboard; }
   renderPaper();
 }
 async function deleteProblemSet(id){
@@ -1616,6 +1687,38 @@ async function deleteProblemSet(id){
   const { error } = await sb.from("problem_sets").delete().eq("id",id);
   if(error){ alert("삭제 실패: "+error.message); return; }
   loadStudentSets(); loadRecentSets();
+}
+
+// 시험지 문항 → 진단용 문제 내용 텍스트(지문+질문+선택지)
+function composeQContent(q){
+  const c=q.choices||{};
+  const ch=["A","B","C","D"].filter(k=>c[k]!==undefined).map(k=>k+") "+c[k]).join("\n");
+  return [ (q.passage&&String(q.passage).trim())?String(q.passage).trim():"", q.stem||"", ch ]
+    .filter(Boolean).join("\n\n");
+}
+
+// "이 시험지로 진단" — 시험지 정답·내용을 채점 단계에 그대로 투입
+function startDiagnosisFromPaper(){
+  if(!currentPaper) return;
+  if(!genStudent){ alert("학생 맞춤 출제(또는 학생 카드의 시험지)에서만 진단으로 연결할 수 있습니다. 학생 카드에서 그 학생의 시험지를 열어 진행하세요."); return; }
+  currentStudent = genStudent;
+  const p=currentPaper;
+  smartSection = (p.section==='math')?'math':'rw';
+  verifyRows = (p.questions||[]).map((q,i)=>({
+    number: String(q.number||(i+1)),
+    student: "",
+    correct: String(q.answer||"").toUpperCase(),
+    content: composeQContent(q)
+  }));
+  document.querySelectorAll("#sSectionSeg button").forEach(b=>b.classList.toggle("on", b.dataset.sec===smartSection));
+  document.getElementById("sExamName").value = p.title || "";
+  document.getElementById("sScore").value = "";
+  document.getElementById("smartStep1").classList.add("hide");
+  document.getElementById("smartStep3").classList.add("hide");
+  document.getElementById("smartStep2").classList.remove("hide");
+  renderVerify();
+  document.getElementById("verifyErr").innerHTML='<div class="card" style="background:var(--teal-bg);border-color:#99f6e4;color:#0f766e;font-size:13px;padding:11px 14px;margin-bottom:0">학생이 푼 답을 <b>“학생 답”</b> 칸에 입력하세요. 정답은 시험지 기준으로 채워져 있고, 문제 내용도 이미 들어 있어 추출 단계 없이 바로 진단됩니다.</div>';
+  show("smart");
 }
 
 // ============================================================
@@ -1667,6 +1770,7 @@ function renderMistakes(done, qs){
         <div class="meta">누적 오답 ${totalWrong}문항 · 진단 ${done.length}회 · INTO유학센터</div></div>
       ${body}
     </div>`;
+  typesetMath(v);
 }
 
 // ---------- util ----------
