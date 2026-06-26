@@ -514,8 +514,8 @@
 //  ⚙️  설정 — 아래 두 값을 본인 Supabase 프로젝트 값으로 채우세요
 //      Supabase 대시보드 > Project Settings > API 에서 확인
 // ============================================================
-const SUPABASE_URL  = "https://igmyfwacvzjkfohgzahi.supabase.co";
-const SUPABASE_ANON = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImlnbXlmd2Fjdnpqa2ZvaGd6YWhpIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODEwMzc2NTIsImV4cCI6MjA5NjYxMzY1Mn0.i5wbCjPBpZw8xjhAdbEIpD4kqw6Vx_Tbqd3y3Q9qVAw";
+const SUPABASE_URL  = "https://lnrugwschlcesaaertgc.supabase.co";
+const SUPABASE_ANON = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImxucnVnd3NjaGxjZXNhYWVydGdjIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODA0ODczNzgsImV4cCI6MjA5NjA2MzM3OH0.JTpEUF2TO2NcuS1ak04hqd2IYfZ2bYn40L3EaLIwVGw";
 // Edge Function 엔드포인트 (위 URL 기반 자동 구성)
 const ANALYZE_URL = SUPABASE_URL + "/functions/v1/analyze";
 // ============================================================
@@ -523,7 +523,7 @@ const ANALYZE_URL = SUPABASE_URL + "/functions/v1/analyze";
 let sb = null;
 const configured = !SUPABASE_URL.includes("YOUR-PROJECT") && !SUPABASE_ANON.includes("YOUR-ANON");
 if (configured) {
-  sb = supabase.createClient(SUPABASE_URL, SUPABASE_ANON);
+  sb = supabase.createClient(SUPABASE_URL, SUPABASE_ANON, { db: { schema: 'imsat' } });
 } else {
   const w = document.getElementById("configWarn");
   w.classList.remove("hide");
