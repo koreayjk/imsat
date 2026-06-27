@@ -263,6 +263,32 @@
     .card,.hero,.rpt-head{box-shadow:none}
     section[id^="view-"]:not(.hide){animation:none}
   }
+
+  /* ============ 대시보드 카드 그리드 ============ */
+  .dash-stats{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-bottom:18px}
+  @media(max-width:560px){.dash-stats{grid-template-columns:1fr}}
+  .stat-tile{position:relative;background:var(--card);border:1px solid var(--line);border-radius:14px;
+    padding:16px 18px;box-shadow:0 1px 2px rgba(15,23,42,.04),0 14px 30px -24px rgba(15,23,42,.28);overflow:hidden}
+  .stat-tile::after{content:"";position:absolute;right:-30px;top:-30px;width:90px;height:90px;border-radius:50%;
+    background:radial-gradient(circle at center, rgba(217,119,6,.10), rgba(217,119,6,0) 70%)}
+  .stat-tile .ic{position:absolute;right:14px;top:14px;font-size:18px;opacity:.85}
+  .stat-tile .v{font-size:26px;font-weight:800;color:var(--ink);line-height:1;letter-spacing:-.02em}
+  .stat-tile .l{font-size:12px;color:var(--mut);margin-top:7px;font-weight:600}
+
+  .stu-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(212px,1fr));gap:14px}
+  .stu-card{background:var(--card);border:1px solid var(--line);border-radius:16px;padding:16px;cursor:pointer;
+    display:flex;flex-direction:column;gap:14px;
+    box-shadow:0 1px 2px rgba(15,23,42,.04),0 14px 30px -24px rgba(15,23,42,.28);
+    transition:transform .16s ease, box-shadow .2s ease, border-color .16s ease}
+  .stu-card:hover{transform:translateY(-3px);border-color:#fcd34d;box-shadow:0 22px 42px -22px rgba(217,119,6,.5)}
+  .stu-card .top{display:flex;align-items:center;gap:12px;min-width:0}
+  .stu-card .avatar{flex:0 0 46px;width:46px;height:46px;border-radius:14px;display:flex;align-items:center;
+    justify-content:center;font-weight:800;font-size:19px;color:#fff;box-shadow:0 6px 14px -6px rgba(15,23,42,.35)}
+  .stu-card .nm{font-weight:800;color:var(--ink);font-size:16px;line-height:1.25;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .stu-card .sub{font-size:12px;color:var(--mut);margin-top:3px}
+  .stu-card .foot{display:flex;align-items:center;justify-content:space-between;
+    border-top:1px solid var(--line);padding-top:11px}
+  .stu-card .go{font-size:12px;color:var(--amber);font-weight:800}
 </style>
 </head>
 <body>
@@ -304,6 +330,7 @@
         <p>틀린 이유를 진단하고, 약점 추세를 추적하고, 수업 포인트까지 한 곳에서.</p>
       </div>
     </div>
+    <div id="dashStats"></div>
     <div id="draftBanner"></div>
     <div class="card">
       <div style="display:flex;gap:10px;align-items:flex-end">
@@ -683,13 +710,45 @@ function backToStudent(){ openStudent(currentStudent); }
 
 // ---------- 학생 ----------
 let allStudents = [];
+let studentDiag = {};   // studentId -> {count, last}
+const AVATAR_GRADS = [
+  ["#d97706","#f59e0b"],["#0d9488","#14b8a6"],["#e11d48","#fb7185"],["#2563eb","#60a5fa"],
+  ["#7c3aed","#a78bfa"],["#0891b2","#22d3ee"],["#65a30d","#a3e635"],["#db2777","#f472b6"]
+];
+function avatarGrad(name){
+  let h=0; for(const c of String(name||"")) h=(h*31+c.charCodeAt(0))>>>0;
+  const g=AVATAR_GRADS[h%AVATAR_GRADS.length];
+  return `linear-gradient(135deg,${g[0]},${g[1]})`;
+}
+function initial(name){ const s=String(name||"").trim(); return s? s[0].toUpperCase() : "?"; }
+
 async function loadStudents(){
   const list = document.getElementById("studentList");
   if(!configured){ list.innerHTML = '<div class="muted" style="padding:20px;text-align:center">Supabase 설정 후 사용 가능합니다.</div>'; return; }
   const { data, error } = await sb.from("students").select("*").order("created_at",{ascending:false});
   if(error){ list.innerHTML = '<div class="err">학생 목록을 불러오지 못했습니다: '+error.message+'</div>'; return; }
   allStudents = data||[];
+
+  // 진단 요약 (학생별 완료 횟수·최근일) + 통계
+  studentDiag = {}; let totalDone=0;
+  const { data:dg } = await sb.from("diagnostics").select("student_id,status,created_at");
+  (dg||[]).forEach(d=>{
+    if((d.status||'done')!=='done') return;
+    const m = studentDiag[d.student_id] || (studentDiag[d.student_id]={count:0,last:null});
+    m.count++; totalDone++;
+    if(!m.last || d.created_at>m.last) m.last=d.created_at;
+  });
+  let totalSets=0;
+  const { count } = await sb.from("problem_sets").select("*",{count:'exact',head:true});
+  totalSets = count||0;
+
+  renderDashStats(allStudents.length, totalDone, totalSets);
   renderStudents();
+}
+function renderDashStats(students, diags, sets){
+  const box=document.getElementById("dashStats"); if(!box) return;
+  const tile=(v,l,ic)=>`<div class="stat-tile"><span class="ic">${ic}</span><div class="v">${v}</div><div class="l">${l}</div></div>`;
+  box.innerHTML=`<div class="dash-stats">${tile(students,"등록 학생","👥")}${tile(diags,"누적 진단","📊")}${tile(sets,"출제한 시험지","📝")}</div>`;
 }
 function renderStudents(){
   const list = document.getElementById("studentList");
@@ -698,13 +757,20 @@ function renderStudents(){
   let arr = allStudents.filter(s=> !q || (s.name||"").toLowerCase().includes(q));
   if(sort==="name") arr = [...arr].sort((a,b)=> (a.name||"").localeCompare(b.name||"","ko"));
   document.getElementById("studentCount").textContent = arr.length+"명"+(q?(" / 전체 "+allStudents.length):"");
-  if(allStudents.length===0){ list.innerHTML = '<div class="muted" style="padding:20px;text-align:center">아직 등록된 학생이 없습니다. 위에서 학생을 등록하세요.</div>'; return; }
-  if(arr.length===0){ list.innerHTML = '<div class="muted" style="padding:20px;text-align:center">검색 결과가 없습니다.</div>'; return; }
-  list.innerHTML = arr.map(s=>`
-    <div class="stu-row" onclick='openStudent(${JSON.stringify(s).replace(/'/g,"&#39;")})'>
-      <span class="nm">${esc(s.name)}</span>
-      <span class="muted">진단 보기 →</span>
-    </div>`).join("");
+  if(allStudents.length===0){ list.innerHTML = '<div class="muted" style="padding:30px 20px;text-align:center">아직 등록된 학생이 없습니다. 위에서 학생을 등록하세요.</div>'; return; }
+  if(arr.length===0){ list.innerHTML = '<div class="muted" style="padding:30px 20px;text-align:center">검색 결과가 없습니다.</div>'; return; }
+  list.innerHTML = '<div class="stu-grid">' + arr.map(s=>{
+    const info = studentDiag[s.id] || {count:0,last:null};
+    const cnt = info.count ? ("진단 "+info.count+"회") : "진단 없음";
+    const last = info.last ? ("최근 "+new Date(info.last).toLocaleDateString("ko-KR",{month:"short",day:"numeric"})) : "기록 없음";
+    return `<div class="stu-card" onclick='openStudent(${JSON.stringify(s).replace(/'/g,"&#39;")})'>
+      <div class="top">
+        <div class="avatar" style="background:${avatarGrad(s.name)}">${esc(initial(s.name))}</div>
+        <div style="min-width:0"><div class="nm">${esc(s.name)}</div><div class="sub">${esc(cnt)}</div></div>
+      </div>
+      <div class="foot"><span class="muted" style="font-size:12px">${esc(last)}</span><span class="go">열기 →</span></div>
+    </div>`;
+  }).join("") + '</div>';
 }
 async function addStudent(){
   const inp = document.getElementById("newStudentName");
