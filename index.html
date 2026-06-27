@@ -10,6 +10,7 @@
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.css" />
 <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.js"></script>
 <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/contrib/auto-render.min.js"></script>
+<link rel="stylesheet" as="style" crossorigin href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.min.css" />
 <style>
   :root{
     --bg:#f7f8fa; --card:#fff; --ink:#0f172a; --ink2:#334155; --mut:#64748b;
@@ -201,6 +202,67 @@
   .answer-block .ab-distr{font-size:12px;line-height:1.6;color:#92400e;margin-top:9px}
   .answer-block .ab-distr b{color:#b45309}
   @media print{ .paper{border:none;padding:0;margin:0} }
+
+  /* ============ 외관 폴리시 ============ */
+  body{
+    background:
+      radial-gradient(1100px 560px at 100% -8%, #eef2ff 0%, rgba(238,242,255,0) 55%),
+      radial-gradient(900px 480px at -8% 2%, #fff7ed 0%, rgba(255,247,237,0) 52%),
+      var(--bg);
+    background-attachment:fixed;
+  }
+  ::selection{background:#fde68a;color:#0f172a}
+  .wrap{padding-top:34px}
+  header.top{border-bottom:1px solid var(--line)}
+  h1{letter-spacing:-.025em}
+  .eyebrow .rule{width:24px;height:2px;border-radius:2px;background:linear-gradient(90deg,var(--amber),#fbbf24)}
+
+  /* 카드 — 부드러운 입체감 */
+  .card{
+    border-radius:16px;
+    box-shadow:0 1px 2px rgba(15,23,42,.04), 0 14px 30px -22px rgba(15,23,42,.28);
+    transition:box-shadow .22s ease, transform .22s ease;
+  }
+
+  /* 입력 */
+  input,textarea,select{border-radius:10px;transition:border-color .15s, box-shadow .15s, background .15s}
+
+  /* 버튼 — 트랜지션 + 살짝 떠오르는 호버 */
+  .btn{border-radius:12px;transition:transform .12s ease, box-shadow .22s ease, background .2s ease}
+  .btn-primary{
+    background:linear-gradient(135deg,#243042 0%, #0f172a 100%);
+    box-shadow:0 8px 18px -10px rgba(15,23,42,.55);
+  }
+  .btn-primary:hover:not(:disabled){transform:translateY(-1px);box-shadow:0 12px 24px -10px rgba(15,23,42,.55)}
+  .btn-primary:active:not(:disabled){transform:translateY(0)}
+  .btn-ghost{transition:transform .12s ease, background .15s, border-color .15s}
+  .btn-ghost:hover{transform:translateY(-1px)}
+
+  /* 목록 행 호버 */
+  .stu-row{transition:transform .15s ease, box-shadow .2s ease, border-color .15s ease;box-shadow:0 1px 2px rgba(15,23,42,.03)}
+  .stu-row:hover{transform:translateY(-1px);box-shadow:0 12px 24px -16px rgba(217,119,6,.55)}
+  .hist-row{transition:transform .15s ease, background .15s ease}
+  .hist-row:hover{transform:translateX(3px)}
+
+  /* 칩 / 세그 / 추가버튼 */
+  .topic-chip{transition:transform .12s ease, background .15s, border-color .15s, color .15s}
+  .topic-chip:hover{transform:translateY(-1px)}
+  .seg button{transition:.15s}
+  .addbtn{transition:.15s}
+  .pill{box-shadow:inset 0 0 0 1px rgba(15,23,42,.03)}
+
+  /* 화면 전환 페이드인 */
+  section[id^="view-"]:not(.hide){animation:viewIn .3s ease both}
+  @keyframes viewIn{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:none}}
+
+  /* 히어로/리포트 헤더 — 그림자 강화 */
+  .hero,.rpt-head{box-shadow:0 18px 40px -22px rgba(15,23,42,.5)}
+
+  @media print{
+    body{background:#fff}
+    .card,.hero,.rpt-head{box-shadow:none}
+    section[id^="view-"]:not(.hide){animation:none}
+  }
 </style>
 </head>
 <body>
