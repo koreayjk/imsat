@@ -289,6 +289,38 @@
   .stu-card .foot{display:flex;align-items:center;justify-content:space-between;
     border-top:1px solid var(--line);padding-top:11px}
   .stu-card .go{font-size:12px;color:var(--amber);font-weight:800}
+
+  /* ============ 데스크톱 전용 (≥1024px) · 모바일은 영향 없음 ============ */
+  @media (min-width:1024px){
+    /* 전체 폭 확장 — 대시보드가 넓은 화면을 활용 */
+    .wrap{max-width:1200px;padding-left:28px;padding-right:28px}
+
+    /* 대시보드 상단: 새 학생 등록 / 문제 출제 2열 */
+    .dash-actions{display:grid;grid-template-columns:1fr 1fr;gap:14px;align-items:stretch}
+    .dash-actions > .card{margin-bottom:0}
+
+    /* 학생 카드 더 촘촘하게 */
+    .stu-grid{grid-template-columns:repeat(auto-fill,minmax(196px,1fr));gap:16px}
+
+    /* 문서형 화면은 가운데 적정 폭으로 (너무 넓으면 읽기 불편) */
+    #view-student, #view-smart, #view-form, #view-report,
+    #view-paper, #view-mistakes, #view-generate{
+      max-width:920px; margin-left:auto; margin-right:auto;
+    }
+    /* 로그인은 기존 좁은 폭 유지 */
+    #view-auth{max-width:420px;margin:0 auto}
+
+    /* 시험지/리포트 본문 가독 폭 */
+    .paper{max-width:880px;margin-left:auto;margin-right:auto}
+
+    /* 호버 가능한 환경 — 카드 그림자 살짝 더 */
+    .card:hover{box-shadow:0 1px 2px rgba(15,23,42,.05),0 18px 36px -24px rgba(15,23,42,.32)}
+  }
+
+  /* 더 큰 모니터 — 학생 그리드만 한 단계 더 넓게 */
+  @media (min-width:1440px){
+    .wrap{max-width:1320px}
+  }
 </style>
 </head>
 <body>
@@ -332,22 +364,24 @@
     </div>
     <div id="dashStats"></div>
     <div id="draftBanner"></div>
-    <div class="card">
-      <div style="display:flex;gap:10px;align-items:flex-end">
-        <div style="flex:1">
-          <label class="fld">새 학생 등록</label>
-          <input id="newStudentName" placeholder="학생 이름 입력 후 Enter" />
+    <div class="dash-actions">
+      <div class="card">
+        <div style="display:flex;gap:10px;align-items:flex-end">
+          <div style="flex:1">
+            <label class="fld">새 학생 등록</label>
+            <input id="newStudentName" placeholder="학생 이름 입력 후 Enter" />
+          </div>
+          <button class="btn btn-ghost" style="width:auto;padding:9px 18px" onclick="addStudent()">등록</button>
         </div>
-        <button class="btn btn-ghost" style="width:auto;padding:9px 18px" onclick="addStudent()">등록</button>
       </div>
-    </div>
 
-    <div class="card gen-cta">
-      <div>
-        <div style="font-weight:800;font-size:15px">📝 SAT 문제 출제</div>
-        <div class="muted" style="font-size:13px;margin-top:2px">영역·유형·난이도를 고르면 AI가 시험지(문제+정답+해설)를 만들어 줍니다.</div>
+      <div class="card gen-cta">
+        <div>
+          <div style="font-weight:800;font-size:15px">📝 SAT 문제 출제</div>
+          <div class="muted" style="font-size:13px;margin-top:2px">영역·유형·난이도를 고르면 AI가 시험지(문제+정답+해설)를 만들어 줍니다.</div>
+        </div>
+        <button class="btn btn-primary" style="width:auto;padding:11px 22px;background:#fbbf24;color:#0f172a" onclick="showGenerate()">출제하기 →</button>
       </div>
-      <button class="btn btn-primary" style="width:auto;padding:11px 22px;background:#fbbf24;color:#0f172a" onclick="showGenerate()">출제하기 →</button>
     </div>
 
     <div style="display:flex;justify-content:space-between;align-items:center;margin:6px 2px 10px">
