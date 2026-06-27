@@ -321,9 +321,64 @@
   @media (min-width:1440px){
     .wrap{max-width:1320px}
   }
+
+  /* ============ 좌측 사이드바 (데스크톱 전용) ============ */
+  #sidebar{display:none}   /* 모바일·로그인 전: 숨김 */
+  #sidebar{
+    flex-direction:column;position:fixed;top:0;left:0;bottom:0;width:264px;z-index:60;
+    background:linear-gradient(180deg,#0f172a 0%, #111c33 100%);color:#cbd5e1;padding:20px 14px;gap:14px;
+    box-shadow:2px 0 24px -16px rgba(0,0,0,.6)}
+  .sb-brand{padding:4px 10px 14px;border-bottom:1px solid rgba(255,255,255,.08)}
+  .sb-brand b{display:block;color:#fff;font-weight:800;font-size:15px;letter-spacing:-.01em}
+  .sb-brand span{font-size:10px;letter-spacing:.16em;text-transform:uppercase;color:#fbbf24}
+  .sb-nav{display:flex;flex-direction:column;gap:5px}
+  .sb-nav button{display:flex;align-items:center;gap:9px;width:100%;text-align:left;background:transparent;border:none;
+    color:#e2e8f0;font-family:inherit;font-size:14px;font-weight:600;padding:10px 12px;border-radius:10px;cursor:pointer;transition:.15s}
+  .sb-nav button:hover{background:rgba(255,255,255,.08)}
+  .sb-nav button.cta{background:#fbbf24;color:#0f172a;font-weight:800;justify-content:center}
+  .sb-nav button.cta:hover{background:#f59e0b}
+  .sb-search input{background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.12);color:#fff;
+    border-radius:9px;padding:8px 11px;font-size:13px;width:100%}
+  .sb-search input:focus{border-color:#fbbf24;box-shadow:none;outline:none}
+  .sb-search input::placeholder{color:#94a3b8}
+  .sb-lbl{font-size:10px;letter-spacing:.14em;text-transform:uppercase;color:#64748b;padding:2px 10px}
+  .sb-students{flex:1;overflow-y:auto;display:flex;flex-direction:column;gap:2px;margin:0 -4px;padding:0 4px}
+  .sb-students::-webkit-scrollbar{width:6px}
+  .sb-students::-webkit-scrollbar-thumb{background:rgba(255,255,255,.12);border-radius:99px}
+  .sb-stu{display:flex;align-items:center;gap:10px;padding:8px 10px;border-radius:9px;cursor:pointer;transition:.12s}
+  .sb-stu:hover{background:rgba(255,255,255,.08)}
+  .sb-stu .av{flex:0 0 28px;width:28px;height:28px;border-radius:8px;display:flex;align-items:center;
+    justify-content:center;font-size:12px;font-weight:800;color:#fff}
+  .sb-stu .nm{font-size:13px;color:#e2e8f0;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .sb-foot{border-top:1px solid rgba(255,255,255,.08);padding-top:12px;display:flex;flex-direction:column;gap:8px}
+  .sb-me{font-size:11px;color:#94a3b8;padding:0 4px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .sb-foot button{background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.12);color:#e2e8f0;
+    padding:9px;border-radius:10px;font-size:13px;font-weight:600;cursor:pointer;font-family:inherit;transition:.15s}
+  .sb-foot button:hover{background:rgba(255,255,255,.12)}
+
+  @media (min-width:1024px){
+    body.authed{padding-left:264px}
+    body.authed #sidebar{display:flex}
+    /* 사이드바가 내비를 담당 → 대시보드 상단 로그아웃 줄은 데스크톱에서 숨김 */
+    body.authed #view-dashboard > .no-print:first-child{display:none}
+  }
 </style>
 </head>
 <body>
+<aside id="sidebar" class="no-print">
+  <div class="sb-brand"><b>INTO유학센터</b><span>SAT Diagnostics</span></div>
+  <nav class="sb-nav">
+    <button onclick="showDashboard()">🏠 대시보드</button>
+    <button class="cta" onclick="showGenerate()">📝 문제 출제</button>
+  </nav>
+  <div class="sb-search"><input id="sbSearch" placeholder="🔍 학생 검색" oninput="renderSidebar()" /></div>
+  <div class="sb-lbl">학생</div>
+  <div class="sb-students" id="sbStudents"></div>
+  <div class="sb-foot">
+    <div class="sb-me" id="sbWho"></div>
+    <button onclick="signOut()">로그아웃</button>
+  </div>
+</aside>
 <div class="wrap">
   <header class="top">
     <div class="eyebrow"><span class="rule"></span>SAT 오답 진단 시스템</div>
@@ -778,6 +833,17 @@ async function loadStudents(){
 
   renderDashStats(allStudents.length, totalDone, totalSets);
   renderStudents();
+  renderSidebar();
+}
+function renderSidebar(){
+  const box=document.getElementById("sbStudents"); if(!box) return;
+  const q=(document.getElementById("sbSearch")?.value||"").trim().toLowerCase();
+  if(!allStudents.length){ box.innerHTML='<div class="sb-lbl" style="opacity:.7;text-transform:none;letter-spacing:0">학생을 등록하세요</div>'; return; }
+  const arr=allStudents.filter(s=> !q || (s.name||"").toLowerCase().includes(q));
+  if(!arr.length){ box.innerHTML='<div class="sb-lbl" style="opacity:.7;text-transform:none;letter-spacing:0">검색 결과 없음</div>'; return; }
+  box.innerHTML=arr.map(s=>`<div class="sb-stu" onclick='openStudent(${JSON.stringify(s).replace(/'/g,"&#39;")})'>
+      <span class="av" style="background:${avatarGrad(s.name)}">${esc(initial(s.name))}</span>
+      <span class="nm">${esc(s.name)}</span></div>`).join("");
 }
 function renderDashStats(students, diags, sets){
   const box=document.getElementById("dashStats"); if(!box) return;
@@ -1982,14 +2048,17 @@ function esc(s){ return String(s==null?"":s).replace(/&/g,"&amp;").replace(/</g,
 
 // ---------- 인증 (교사 로그인) ----------
 function showAuth(){
+  document.body.classList.remove("authed");
   VIEWS.forEach(v=>document.getElementById("view-"+v).classList.add("hide"));
   document.getElementById("view-auth").classList.remove("hide");
   window.scrollTo(0,0);
 }
 function enterApp(session){
+  document.body.classList.add("authed");
   document.getElementById("view-auth").classList.add("hide");
   const email = session && session.user ? session.user.email : "";
   document.getElementById("whoami").textContent = email ? ("로그인: "+email) : "";
+  const sbw = document.getElementById("sbWho"); if(sbw) sbw.textContent = email || "";
   showDashboard();
 }
 async function login(){
