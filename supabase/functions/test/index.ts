@@ -50,9 +50,11 @@ function buildSystemPrompt(secLabel){ return `당신은 미국 대학입시 SAT 
 종합: weaknessSummary, errorTypeCounts(객체), prescription(배열 3~4), teacherNotes.
 아래 JSON만(백틱·설명 없이): {"perQuestion":[{"number":"","studentAnswer":"","correctAnswer":"","whyChose":"","trapIntent":"","correctLogic":"","errorType":""}],"weaknessSummary":"","errorTypeCounts":{},"prescription":[],"teacherNotes":""}`; }
 async function runDiagnosis(sb,diagId,secLabel,examName,scoreStr,wrongQs,teacherId){
-  try{ const user=`학생 시험 채점 결과 기반 오답 분석.\n영역: ${secLabel}\n시험: ${examName}\n점수: ${scoreStr}\n\n`+
-      wrongQs.map(q=>`[문항 ${q.number}] 학생이 고른 답: ${q.student} / 정답: ${q.correct}\n문제 내용:\n${q.content}`).join("\n\n---\n\n");
-    const text=await callAnthropic({system:buildSystemPrompt(secLabel),messages:[{role:"user",content:user}],max_tokens:4000});
+  try{ const sample=wrongQs.slice(0,18);   // 문항이 많으면 대표 18개만 상세 분석(출력 토큰 초과 방지)
+    const more = wrongQs.length>sample.length ? `\n\n(틀린 문항이 총 ${wrongQs.length}개 — 위 ${sample.length}개를 대표로 분석)` : "";
+    const user=`학생 시험 채점 결과 기반 오답 분석.\n영역: ${secLabel}\n시험: ${examName}\n점수: ${scoreStr}\n\n`+
+      sample.map(q=>`[문항 ${q.number}] 학생이 고른 답: ${q.student} / 정답: ${q.correct}\n문제 내용:\n${q.content}`).join("\n\n---\n\n")+more;
+    const text=await callAnthropic({system:buildSystemPrompt(secLabel),messages:[{role:"user",content:user}],max_tokens:8000});
     const out=parseJSON(text);
     await sb.from("diagnostics").update({error_type_counts:out.errorTypeCounts||{},weakness_summary:out.weaknessSummary||"",prescription:out.prescription||[],teacher_notes:out.teacherNotes||"",status:"done"}).eq("id",diagId);
     const rows=(out.perQuestion||[]).map(q=>({diagnostic_id:diagId,teacher_id:teacherId,number:String(q.number??""),student_answer:q.studentAnswer||"",correct_answer:q.correctAnswer||"",why_chose:q.whyChose||"",trap_intent:q.trapIntent||"",correct_logic:q.correctLogic||"",error_type:q.errorType||""}));

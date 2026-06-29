@@ -690,6 +690,7 @@
     </div>
 
     <div class="btn-row no-print" style="margin-bottom:16px">
+      <button class="btn btn-primary" onclick="showProfile()">🧠 누적 종합 분석</button>
       <button class="btn btn-ghost" onclick="genFromStudent()">📝 약점 기반 출제</button>
       <button class="btn btn-ghost" onclick="showMistakes()">📕 오답노트 PDF</button>
       <button class="btn btn-ghost" style="color:var(--rose)" onclick="deleteStudent(currentStudent.id, currentStudent.name)">🗑 학생 삭제</button>
@@ -949,6 +950,9 @@
 
   <!-- ============ 수업용 보기(선생님 프레젠테이션) ============ -->
   <section id="view-present" class="hide"></section>
+
+  <!-- ============ 누적 종합 분석 ============ -->
+  <section id="view-profile" class="hide"></section>
 </div>
 
 <script>
@@ -984,7 +988,7 @@ let trendChartObj = null;
 let historyPollTimer = null;
 
 // ---------- 뷰 전환 ----------
-const VIEWS = ["dashboard","student","smart","form","report","generate","paper","library","mistakes"];
+const VIEWS = ["dashboard","student","smart","form","report","generate","paper","library","mistakes","profile"];
 function show(view){
   VIEWS.forEach(v=>{
     document.getElementById("view-"+v).classList.toggle("hide", v!==view);
@@ -2426,6 +2430,70 @@ function startDiagnosisFromPaper(){
 // ============================================================
 //  오답노트 묶음 (학생별 누적 오답 → 인쇄용)
 // ============================================================
+// ============================================================
+//  누적 종합 분석 (Adaptive Profile)
+// ============================================================
+async function showProfile(){
+  if(!currentStudent) return;
+  const st=currentStudent;
+  show("profile");
+  const v=document.getElementById("view-profile");
+  const back='<div class="btn-row no-print" style="margin-bottom:16px"><button class="btn btn-ghost" style="flex:0 0 auto;width:auto;padding:9px 16px" onclick="openStudent(currentStudent)">← 학생 카드</button></div>';
+  v.innerHTML=back+'<div class="loading"><div class="spinner"></div>누적 데이터 종합 분석 중… (10~20초)</div>';
+  try{
+    const { data } = await sb.from("diagnostics").select("*").eq("student_id",st.id).order("created_at",{ascending:true});
+    const done=(data||[]).filter(d=>(d.status||'done')==='done');
+    if(done.length===0){ v.innerHTML=back+'<div class="card"><div class="muted" style="padding:24px;text-align:center">아직 완료된 진단이 없습니다. 시험을 1회 이상 보면 종합 분석이 가능합니다.</div></div>'; return; }
+    const lines=done.map((d,i)=>{
+      const date=new Date(d.created_at).toLocaleDateString("ko-KR");
+      const etc=Object.entries(d.error_type_counts||{}).map(([t,n])=>t+"×"+n).join(", ")||"-";
+      return `${i+1}) ${date} · ${SECTION_LABEL[d.section]||d.section} · 점수 ${d.score||"-"} · 오답유형[${etc}] · 약점요약: ${(d.weakness_summary||"").replace(/\s+/g," ").slice(0,140)}`;
+    }).join("\n");
+    const prompt=`당신은 SAT 학습 분석 전문가입니다. 한 학생의 누적 시험·진단 기록을 종합해 "누적 종합 분석 프로파일"을 한국어로 작성하세요. 학원 선생님이 보는 자료입니다.
+학생: ${st.name}
+진단 횟수: ${done.length}회
+
+[시간순 진단 기록]
+${lines}
+
+위 데이터를 종합해 아래 JSON만 출력(백틱·설명 금지):
+{"overview":"전반 요약 2~3문장(현재 수준·핵심 메시지)","skillProfile":[{"skill":"영역/세부유형","level":"강점|보통|약점","note":"근거 한 줄"}],"trend":"시간에 따른 변화(나아진 점/정체된 점) 2~3문장","habits":["반복되는 사고·실수 습관 1~3개"],"plan":["다음 시험까지 우선순위 학습 플랜 3~5개(구체적 행동)"]}`;
+    const res=await fetch(ANALYZE_URL,{ method:"POST", headers:await fnHeaders(),
+      body:JSON.stringify({ task:"generate", max_tokens:3000, messages:[{role:"user",content:[{type:"text",text:prompt}]}] }) });
+    const out=await res.json(); if(out.error) throw new Error(out.error);
+    const prof=parseModelJSON(out.text||"");
+    if(!prof) throw new Error("분석 결과를 해석하지 못했습니다. 다시 시도해 주세요.");
+    renderProfile(st, prof, done.length, back);
+  }catch(e){
+    v.innerHTML=back+'<div class="card"><div class="err">종합 분석에 실패했습니다.<br><span class="muted">'+esc(String(e.message||e))+'</span></div></div>';
+  }
+}
+function renderProfile(st, p, count, back){
+  const lvlColor={ "강점":"var(--teal)", "보통":"var(--mut)", "약점":"var(--rose)" };
+  const lvlBg={ "강점":"var(--teal-bg)", "보통":"#f1f5f9", "약점":"var(--rose-bg)" };
+  const skills=(p.skillProfile||[]).map(s=>`
+    <div style="display:flex;align-items:center;gap:10px;padding:9px 0;border-bottom:1px solid #f1f5f9">
+      <span class="pill" style="background:${lvlBg[s.level]||'#f1f5f9'};color:${lvlColor[s.level]||'var(--mut)'};flex:0 0 auto">${esc(s.level||'')}</span>
+      <span style="font-weight:700;color:var(--ink)">${esc(s.skill||'')}</span>
+      <span class="muted" style="font-size:13px;margin-left:auto;text-align:right">${esc(s.note||'')}</span>
+    </div>`).join("");
+  const habits=(p.habits||[]).map(h=>`<li>${esc(h)}</li>`).join("");
+  const plan=(p.plan||[]).map((x,i)=>`<li><span class="n">${i+1}</span><span>${esc(x)}</span></li>`).join("");
+  document.getElementById("view-profile").innerHTML=back+`
+    <div class="rpt-head" style="margin-bottom:18px">
+      <div class="ey">누적 종합 분석 · ${count}회 데이터</div>
+      <h2>${esc(st.name)} 학생 학습 프로파일</h2>
+      <p>모든 시험 기록을 종합한 개인별 분석입니다. 시험이 쌓일수록 정밀해집니다.</p>
+    </div>
+    <div class="pbox"><div class="ph">총평</div><p>${esc(p.overview||'')}</p></div>
+    <div class="card"><div class="h3">영역·유형별 숙련도</div>${skills||'<div class="muted">데이터 부족</div>'}</div>
+    <div class="pbox"><div class="ph">시간에 따른 변화</div><p>${esc(p.trend||'')}</p></div>
+    ${habits?`<div class="card"><div class="h3">반복되는 습관</div><ul class="pres">${(p.habits||[]).map(h=>`<li><span class="n" style="background:var(--rose)">!</span><span>${esc(h)}</span></li>`).join("")}</ul></div>`:""}
+    ${plan?`<div class="card"><div class="h3">우선순위 학습 플랜</div><ul class="pres">${plan}</ul></div>`:""}
+    <div class="btn-row no-print" style="margin-top:8px"><button class="btn btn-ghost" onclick="showProfile()">🔄 다시 분석</button><button class="btn btn-ghost" onclick="window.print()">🖨 인쇄/PDF</button></div>`;
+  typesetMath(document.getElementById("view-profile"));
+}
+
 async function showMistakes(){
   if(!currentStudent) return;
   show("mistakes");
