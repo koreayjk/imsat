@@ -1766,7 +1766,7 @@ const DIFF_GUIDE = {
   Hard:"다단계 추론·미묘한 구분, 매우 매력적인 오답, 고난도 어휘/복잡한 식.",
   "혼합":"쉬움~어려움을 고르게 섞되 각 문항의 difficulty 필드에 실제 난이도를 정확히 표기."
 };
-function buildGenPrompt(secLabel, topicStr, count, diffLabel, note, weakNote){
+function buildGenPrompt(secLabel, topicStr, count, diffLabel, note, weakNote, avoidText){
   const isMath = /math/i.test(secLabel);
   const sectionSpec = isMath ? `
 [Math 실전 규격]
@@ -1805,7 +1805,7 @@ ${weakNote?("학생이 반복적으로 약한 유형(집중 공략): "+weakNote+
 - 정답은 지문/논리만으로 단 하나로 확정되어야 하며, 오답은 각각 "왜 매력적인지"가 분명해야 합니다.
 - 정답 위치(A~D)는 고르게 분산. ${diffLabel==="혼합"?"":"모든 문항을 지정 난이도로 통일."}
 ${sectionSpec}
-
+${avoidText?("\n[중복 금지 — 매우 중요] 아래는 이미 출제된 문항들의 발문 일부입니다. 이들과 지문·소재·상황·숫자·정답 시나리오가 절대 겹치지 않도록, 전혀 다른 새 문제만 만드세요:\n- "+avoidText+"\n"):""}
 [출력] 순수 JSON만 출력(설명·백틱 금지):
 {"title":"시험지 제목(한국어, 영역·유형 반영)","questions":[{"number":1,"skill":"공식 유형명","difficulty":"easy|medium|hard","format":"mc","passage":"지문/맥락 또는 빈 문자열","stem":"발문(영어)","choices":{"A":"...","B":"...","C":"...","D":"..."},"answer":"A","explanation":"정답 해설(한국어, 단계적)","distractors":{"B":"오답 이유","C":"오답 이유","D":"오답 이유"}}]}
 - 객관식은 format:"mc". 수학 grid 문항은 format:"grid"로 하고 choices와 distractors를 생략, answer에 수치만.
@@ -1837,12 +1837,14 @@ function typesetMath(el){
 
 // 공통 생성 루틴 — 큰 문항 수는 5문항씩 배치로 나눠 호출(토큰 잘림 방지)
 async function runGeneration(opts, btn){
-  const { section, topics, difficulty, count, note, weakNote, student, variation } = opts;
+  const { section, topics, difficulty, count, note, weakNote, student, variation, seq } = opts;
   const secLabel=SECTION_LABEL[section];
   const diffLabel=DIFF_LABEL[difficulty]||difficulty;
   const topicStr=(topics&&topics.length)? topics.join(", ") : "영역 전반";
   const BATCH=5;
   const batches=[]; let rem=count; while(rem>0){ batches.push(Math.min(BATCH,rem)); rem-=BATCH; }
+  // 중복 회피용 발문 목록(이전 시험지 + 이번에 생성된 것 누적)
+  let avoid = Array.isArray(opts.avoidStems) ? [...opts.avoidStems] : [];
   let all=[], title=null;
   for(let bi=0; bi<batches.length; bi++){
     const bn=batches[bi];
@@ -1850,7 +1852,8 @@ async function runGeneration(opts, btn){
       ? ("문제 생성 중… "+(bi+1)+"/"+batches.length+" 묶음")
       : ("문제 생성 중… ("+bn+"문항 · 20~50초)");
     const vnote=(variation?"이전에 출제한 것과 겹치지 않는 완전히 새로운 문제로 출제하세요. ":"")+(note||"");
-    const prompt=buildGenPrompt(secLabel, topicStr, bn, diffLabel, vnote, weakNote);
+    const avoidText = avoid.length ? avoid.slice(-60).join("\n- ") : "";
+    const prompt=buildGenPrompt(secLabel, topicStr, bn, diffLabel, vnote, weakNote, avoidText);
     const res=await fetch(ANALYZE_URL,{ method:"POST", headers:await fnHeaders(),
       body:JSON.stringify({ max_tokens:Math.min(8000, 1100*bn+1200),
         messages:[{ role:"user", content:[{ type:"text", text:prompt }] }] }) });
@@ -1860,11 +1863,33 @@ async function runGeneration(opts, btn){
     if(!data || !Array.isArray(data.questions)) throw new Error("응답을 해석하지 못했습니다. 잠시 후 다시 시도해 주세요.");
     if(!title) title=data.title;
     all=all.concat(data.questions);
+    // 이번 배치 발문을 회피 목록에 추가 → 다음 배치/시험지가 안 겹치게
+    data.questions.forEach(q=>{ const s=String(q.stem||"").trim().replace(/\s+/g," ").slice(0,70); if(s) avoid.push(s); });
   }
   if(all.length===0) throw new Error("문제를 생성하지 못했습니다. 다시 시도해 주세요.");
   all=all.slice(0,count).map((q,i)=>({ ...q, number:i+1 }));
-  return { title: title || (secLabel+" 연습 시험지"), section, difficulty, topics:topics||[],
+  const baseTitle = title || (secLabel+" 연습 시험지");
+  return { title: seq ? (baseTitle+" · #"+seq) : baseTitle, section, difficulty, topics:topics||[],
     questions: all, studentName: student? student.name : null, savedId:null };
+}
+
+// 이전 시험지들의 발문을 모아 중복 회피용으로 반환 (영역별, 본인 것만)
+async function fetchAvoidStems(section){
+  try{
+    const { data } = await sb.from("problem_sets")
+      .select("questions").eq("section",section).order("created_at",{ascending:false}).limit(6);
+    const stems=[];
+    (data||[]).forEach(ps=>(ps.questions||[]).forEach(q=>{
+      const s=String(q.stem||"").trim().replace(/\s+/g," ").slice(0,70);
+      if(s) stems.push(s);
+    }));
+    return stems.slice(0,120);
+  }catch(_e){ return []; }
+}
+// 영역별 다음 회차 번호
+async function nextSeq(section){
+  try{ const { count } = await sb.from("problem_sets").select("*",{count:'exact',head:true}).eq("section",section); return (count||0)+1; }
+  catch(_e){ return null; }
 }
 
 async function generateProblems(){
@@ -1874,10 +1899,11 @@ async function generateProblems(){
   if(isNaN(count)||count<1) count=5;
   if(count>54) count=54;
   const note=document.getElementById("genNote").value.trim();
-  const btn=document.getElementById("genBtn"); btn.disabled=true;
+  const btn=document.getElementById("genBtn"); btn.disabled=true; btn.textContent="이전 출제 확인 중…";
   try{
+    const [avoidStems, seq] = await Promise.all([ fetchAvoidStems(genSection), nextSeq(genSection) ]);
     currentPaper=await runGeneration({ section:genSection, topics:genTopics, difficulty:genDifficulty,
-      count, note, weakNote:genWeakNote, student:genStudent, variation:false }, btn);
+      count, note, weakNote:genWeakNote, student:genStudent, variation:false, avoidStems, seq }, btn);
     paperSaveWarn="";
     try{ await savePaper(); }catch(se){ paperSaveWarn=String(se.message||se); }
     paperReturn = genStudent ? (st=>()=>openStudent(st))(genStudent) : showDashboard;
@@ -1896,9 +1922,10 @@ async function regenerateSimilar(){
   const p=currentPaper;
   const btn=document.getElementById("regenBtn"); if(btn){ btn.disabled=true; btn.textContent="새 문제 생성 중…"; }
   try{
+    const [avoidStems, seq] = await Promise.all([ fetchAvoidStems(p.section), nextSeq(p.section) ]);
     currentPaper=await runGeneration({ section:p.section, topics:p.topics||[], difficulty:p.difficulty,
       count:(p.questions||[]).length||5, note:"", weakNote:genStudent?genWeakNote:"",
-      student:genStudent, variation:true }, btn);
+      student:genStudent, variation:true, avoidStems, seq }, btn);
     paperSaveWarn="";
     try{ await savePaper(); }catch(se){ paperSaveWarn=String(se.message||se); }
     renderPaper(); window.scrollTo(0,0);
