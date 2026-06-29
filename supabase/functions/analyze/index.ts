@@ -58,9 +58,10 @@ async function callGemini(messages, max_tokens) {
     body: JSON.stringify({
       contents,
       generationConfig: {
-        maxOutputTokens: Math.min(8192, max_tokens || 8000),
+        maxOutputTokens: 16384,
         temperature: 0.9,
         responseMimeType: "application/json",
+        thinkingConfig: { thinkingBudget: 0 },  // thinking 끄기 → 출력 잘림 방지
       },
     }),
   });
