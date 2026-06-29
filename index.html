@@ -823,6 +823,15 @@
         <span style="font-size:13px"><b style="color:#b45309">적응형 2모듈 시험(실전형)</b> — 모듈1을 풀면 점수에 따라 모듈2가 쉬움/어려움으로 자동 배정됩니다. <span class="muted" id="genAdaptiveNote"></span></span>
       </label>
 
+      <div id="genThreshRow" class="hide" style="margin-top:12px">
+        <label class="fld">모듈2 난이도 배정 기준 <span class="muted">(모듈1 정답률이 이 값 이상이면 '어려움' 배정)</span></label>
+        <div class="seg" id="genThreshSeg">
+          <button type="button" data-t="0.5">50%</button>
+          <button type="button" data-t="0.6" class="on">60% (기본)</button>
+          <button type="button" data-t="0.7">70%</button>
+        </div>
+      </div>
+
       <div class="grid2" style="margin-top:14px" id="genDiffCountRow">
         <div>
           <label class="fld">난이도</label>
@@ -1870,14 +1879,19 @@ function updateGenCountHint(){
   const n=document.getElementById("genAdaptiveNote");
   if(n) n.textContent = (genSection==='math') ? "(Math: 모듈당 22문항)" : "(R&W: 모듈당 27문항)";
 }
+let genThreshold=0.6;
 function isAdaptiveOn(){ const c=document.getElementById("genAdaptive"); return !!(c&&c.checked); }
 function onAdaptiveToggle(){
   const on=isAdaptiveOn();
   const row=document.getElementById("genDiffCountRow");
-  if(row) row.style.opacity=on?".45":"1";
-  if(row) row.style.pointerEvents=on?"none":"auto";
+  if(row){ row.style.opacity=on?".45":"1"; row.style.pointerEvents=on?"none":"auto"; }
+  const tr=document.getElementById("genThreshRow"); if(tr) tr.classList.toggle("hide", !on);
   updateGenCountHint();
 }
+document.querySelectorAll("#genThreshSeg button").forEach(b=>b.addEventListener("click",()=>{
+  genThreshold=parseFloat(b.dataset.t);
+  document.querySelectorAll("#genThreshSeg button").forEach(x=>x.classList.toggle("on",x===b));
+}));
 document.querySelectorAll("#genDiffSeg button").forEach(b=>b.addEventListener("click",()=>{
   genDifficulty=b.dataset.d;
   document.querySelectorAll("#genDiffSeg button").forEach(x=>x.classList.toggle("on",x===b));
@@ -1923,6 +1937,8 @@ function showGenerate(student=null, weakTypes=[], section="rw"){
   } else { wbox.innerHTML=""; }
   renderGenTopics();
   const ad=document.getElementById("genAdaptive"); if(ad) ad.checked=false;
+  genThreshold=0.6;
+  document.querySelectorAll("#genThreshSeg button").forEach(x=>x.classList.toggle("on", x.dataset.t==="0.6"));
   onAdaptiveToggle();
   show("generate");
 }
@@ -2130,7 +2146,7 @@ async function generateAdaptive(){
     currentPaper={
       title: (secLabel+" 적응형 모의고사")+(seq?(" · #"+seq):""),
       section: genSection, difficulty:'mixed', topics:genTopics,
-      adaptive:true, modules,
+      adaptive:true, modules, routeThreshold:genThreshold,
       questions: [...modules.m1, ...modules.m2e, ...modules.m2h],
       studentName: genStudent? genStudent.name : null, savedId:null
     };
@@ -2169,7 +2185,8 @@ async function savePaper(){
     student_id: genStudent? genStudent.id : null,
     title: p.title, section: p.section, difficulty: p.difficulty,
     topics: p.topics, questions: p.questions,
-    adaptive: !!p.adaptive, modules: p.modules||null
+    adaptive: !!p.adaptive, modules: p.modules||null,
+    route_threshold: p.adaptive ? (p.routeThreshold||0.6) : null
   }).select().single();
   if(error) throw new Error(error.message);
   p.savedId=data.id;
@@ -2322,7 +2339,7 @@ async function openProblemSet(id, origin){
   if(error || !data){ document.getElementById("view-paper").innerHTML='<div class="err">시험지를 불러오지 못했습니다.</div>'; return; }
   currentPaper={ title:data.title, section:data.section, difficulty:data.difficulty,
     topics:data.topics||[], questions:data.questions||[], shareToken:data.share_token||null,
-    adaptive:!!data.adaptive, modules:data.modules||null,
+    adaptive:!!data.adaptive, modules:data.modules||null, routeThreshold:data.route_threshold||0.6,
     studentName:(origin==='student'&&currentStudent)?currentStudent.name:null, savedId:data.id };
   paperSaveWarn="";
   if(origin==='student' && currentStudent){ const st=currentStudent; genStudent=st; genWeakNote=""; paperReturn=()=>openStudent(st); }

@@ -34,7 +34,7 @@ function scoreModule(qs, answers, offset){
     review.push({number:q.number||(offset+i+1),skill:q.skill||"",format:q.format||"mc",passage:q.passage||"",stem:q.stem||"",choices:q.choices||{},answer:norm(q.answer),your:norm(ans),correct:ok,explanation:q.explanation||"",distractors:q.distractors||{}}); });
   return { score, review, wrong };
 }
-function routeOf(m1score,m1count){ return (m1count>0 && m1score/m1count>=0.6) ? "hard":"easy"; }
+function routeOf(m1score,m1count,th){ const t=(typeof th==="number"&&th>0)?th:0.6; return (m1count>0 && m1score/m1count>=t) ? "hard":"easy"; }
 function scaledSection(correct,total,route){ const p=total?correct/total:0;
   return route==="hard" ? Math.round(Math.min(800,400+p*400)) : Math.round(Math.min(620,200+p*420)); }
 
@@ -97,7 +97,7 @@ Deno.serve(async(req)=>{
       const st=await verifyStudent(sb,body.studentId,ps.teacher_id);
       if(!st) return json({error:"등록된 학생이 아닙니다."},400);
       const m1=scoreModule(ps.modules.m1, body.m1Answers||[], 0);
-      const route=routeOf(m1.score, ps.modules.m1.length);
+      const route=routeOf(m1.score, ps.modules.m1.length, ps.route_threshold);
       const m2 = route==="hard" ? (ps.modules.m2h||[]) : (ps.modules.m2e||[]);
       return json({ route, m2Count:m2.length, moduleTimeSec:moduleTimeSec(ps.section), questions:strip(m2) });
     }
@@ -111,7 +111,7 @@ Deno.serve(async(req)=>{
       let total=0, score=0, review=[], wrongQs=[], route=null, scaled=null;
       if(adaptive){
         const m1=scoreModule(ps.modules.m1, body.m1Answers||[], 0);
-        route=routeOf(m1.score, ps.modules.m1.length);
+        route=routeOf(m1.score, ps.modules.m1.length, ps.route_threshold);
         const m2qs = route==="hard" ? (ps.modules.m2h||[]) : (ps.modules.m2e||[]);
         const m2=scoreModule(m2qs, body.m2Answers||[], ps.modules.m1.length);
         score=m1.score+m2.score; total=ps.modules.m1.length+m2qs.length;
