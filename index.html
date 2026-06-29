@@ -2367,7 +2367,7 @@ async function startExam(token){
   const root = document.getElementById("view-exam");
   root.innerHTML = '<div class="loading"><div class="spinner"></div>시험 정보를 불러오는 중…</div>';
   try{
-    const res = await fetch(TEST_URL, { method:"POST", headers:{ "Content-Type":"application/json", "apikey":SUPABASE_ANON },
+    const res = await fetch(TEST_URL, { method:"POST", headers:{ "Content-Type":"application/json", "apikey":SUPABASE_ANON, "Authorization":"Bearer "+SUPABASE_ANON },
       body: JSON.stringify({ action:"info", token }) });
     const info = await res.json();
     if(info.error) throw new Error(info.error);
@@ -2491,7 +2491,7 @@ async function submitExam(auto){
   root.innerHTML='<div class="loading"><div class="spinner"></div>'+(auto?'시간 종료 — ':'')+'채점 중…</div>';
   try{
     const answers=EX.qs.map((q,i)=>EX.answers[i]!==undefined? String(EX.answers[i]):"");
-    const res=await fetch(TEST_URL,{ method:"POST", headers:{ "Content-Type":"application/json", "apikey":SUPABASE_ANON },
+    const res=await fetch(TEST_URL,{ method:"POST", headers:{ "Content-Type":"application/json", "apikey":SUPABASE_ANON, "Authorization":"Bearer "+SUPABASE_ANON },
       body:JSON.stringify({ action:"submit", token:EX.token, studentId:EX.studentId, answers }) });
     const out=await res.json();
     if(out.error) throw new Error(out.error);
