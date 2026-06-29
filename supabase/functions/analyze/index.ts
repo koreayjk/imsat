@@ -14,8 +14,10 @@ const ANTHROPIC_API_KEY = Deno.env.get("ANTHROPIC_API_KEY")!;
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
 const SERVICE_ROLE = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
 
-// 비전(이미지) + 텍스트를 모두 지원하는 모델. 필요 시 교체하세요.
-const MODEL = "claude-3-5-sonnet-latest";
+// 비전(이미지) + 텍스트를 모두 지원하는 모델. 계정에 따라 교체하세요.
+//  · 권장(품질·속도 균형): claude-sonnet-4-6
+//  · 최고 품질: claude-opus-4-8   · 저렴·빠름: claude-haiku-4-5-20251001
+const MODEL = "claude-sonnet-4-6";
 
 const cors = {
   "Access-Control-Allow-Origin": "*",
