@@ -391,6 +391,79 @@
   .pq-choices li.rv.wrong{background:var(--rose-bg)}
   .pq-choices li.rv.wrong .ck{background:var(--rose);border-color:var(--rose);color:#fff}
   @media(max-width:560px){ .exam-navgrid{grid-template-columns:repeat(6,1fr)} }
+
+  /* ============ Bluebook 스타일 시험 (IMSAT) ============ */
+  .bb-top{position:fixed;top:0;left:0;right:0;height:60px;z-index:30;background:#fff;border-bottom:2px solid #e2e8f0;
+    display:flex;align-items:center;justify-content:space-between;padding:0 18px}
+  .bb-left{display:flex;flex-direction:column;gap:1px;min-width:0}
+  .bb-section{font-weight:800;color:var(--ink);font-size:14px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:30vw}
+  .bb-sub{font-size:11px;color:var(--mut)}
+  .bb-center{display:flex;flex-direction:column;align-items:center;gap:2px}
+  .bb-timer{font-size:20px;font-weight:800;font-variant-numeric:tabular-nums;color:var(--ink)}
+  .bb-hide{border:1px solid #cbd5e1;background:#fff;border-radius:99px;font-size:11px;padding:2px 12px;cursor:pointer;color:var(--ink2);font-family:inherit}
+  .bb-right{display:flex;align-items:center;gap:4px}
+  .bb-tool{display:flex;flex-direction:column;align-items:center;gap:1px;background:none;border:none;cursor:pointer;
+    color:var(--ink2);font-size:10px;font-weight:600;padding:4px 8px;border-radius:8px;font-family:inherit}
+  .bb-tool:hover{background:#f1f5f9}
+  .bb-tool .ic{font-size:16px}
+  .bb-main{position:fixed;top:60px;bottom:62px;left:0;right:0;background:#fff;display:flex;overflow:hidden}
+  .bb-divider{width:1px;background:#e2e8f0;flex:0 0 1px}
+  .bb-pane{flex:1;overflow-y:auto;padding:26px clamp(16px,4vw,48px)}
+  .bb-q-center{max-width:720px;margin:0 auto}
+  .bb-passage{font-size:15px;line-height:1.85;color:var(--ink2);white-space:pre-line}
+  .bb-qhead{display:flex;align-items:center;gap:10px;border-bottom:1px solid #0f172a;padding-bottom:8px;margin-bottom:16px}
+  .bb-qn{background:#0f172a;color:#fff;font-weight:800;font-size:14px;width:26px;height:26px;border-radius:5px;display:flex;align-items:center;justify-content:center;flex:0 0 auto}
+  .bb-mark{background:none;border:none;color:var(--ink2);font-size:12px;font-weight:600;cursor:pointer;display:flex;align-items:center;gap:3px;font-family:inherit}
+  .bb-mark.on{color:var(--amber)}
+  .bb-elimtoggle{margin-left:auto;border:1px solid #cbd5e1;background:#fff;border-radius:6px;font-size:12px;font-weight:700;padding:3px 9px;cursor:pointer;color:var(--ink2);font-family:inherit}
+  .bb-elimtoggle.on{background:#0f172a;color:#fff;border-color:#0f172a}
+  .bb-stem{font-size:16px;line-height:1.7;color:var(--ink);font-weight:600;margin-bottom:16px;white-space:pre-line}
+  .bb-choices{display:flex;flex-direction:column;gap:10px}
+  .bb-ch{display:flex;align-items:stretch;border:1.5px solid #cbd5e1;border-radius:10px;overflow:hidden;transition:.12s}
+  .bb-ch:hover{border-color:var(--amber)}
+  .bb-ch.on{border-color:#0f172a;box-shadow:inset 0 0 0 1px #0f172a}
+  .bb-ch-main{flex:1;display:flex;gap:11px;align-items:center;text-align:left;background:#fff;border:none;padding:12px 14px;cursor:pointer;font-size:15px;line-height:1.5;color:var(--ink2);font-family:inherit}
+  .bb-ck{flex:0 0 26px;height:26px;border:1.5px solid #94a3b8;border-radius:50%;display:flex;align-items:center;justify-content:center;font-weight:800;font-size:13px;color:var(--ink2)}
+  .bb-ch.on .bb-ck{background:#0f172a;color:#fff;border-color:#0f172a}
+  .bb-ch.elim .bb-ch-main{opacity:.45}
+  .bb-ch.elim .bb-ch-txt{text-decoration:line-through}
+  .bb-ch-elim{flex:0 0 auto;border:none;border-left:1px solid #e2e8f0;background:#f8fafc;cursor:pointer;font-size:14px;padding:0 13px;color:var(--mut)}
+  .bb-ch-elim:hover{background:#fee2e2;color:var(--rose)}
+  .bb-grid{max-width:240px;font-size:18px;padding:10px 14px;border:2px solid #0f172a;border-radius:8px}
+  .bb-preview{margin-top:12px;font-weight:700;color:var(--ink)}
+  .bb-bottom{position:fixed;bottom:0;left:0;right:0;height:62px;z-index:30;background:#fff;border-top:2px solid #e2e8f0;
+    display:flex;align-items:center;justify-content:space-between;padding:0 18px}
+  .bb-name{font-weight:700;color:var(--ink);font-size:13px;min-width:110px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .bb-navbtn{background:#0f172a;color:#fff;border:none;border-radius:8px;font-size:13px;font-weight:700;padding:9px 16px;cursor:pointer;font-family:inherit}
+  .bb-move{display:flex;gap:10px;min-width:110px;justify-content:flex-end}
+  .bb-back,.bb-next{border:none;border-radius:99px;font-size:14px;font-weight:700;padding:10px 26px;cursor:pointer;font-family:inherit}
+  .bb-back{background:#e2e8f0;color:var(--ink2)}
+  .bb-next{background:#1d4ed8;color:#fff}
+  .bb-calc{position:fixed;top:70px;left:14px;width:min(420px,46vw);height:70vh;z-index:50;background:#fff;border:1px solid #cbd5e1;
+    border-radius:12px;box-shadow:0 20px 50px -16px rgba(15,23,42,.5);display:flex;flex-direction:column;overflow:hidden}
+  .bb-calc-head{display:flex;align-items:center;justify-content:space-between;background:#0f172a;color:#fff;padding:8px 12px;font-size:13px;font-weight:700}
+  .bb-calc-x{background:rgba(255,255,255,.15);border:none;color:#fff;width:24px;height:24px;border-radius:6px;cursor:pointer}
+  .bb-calc iframe{flex:1;border:none;width:100%}
+  .bb-modal{position:fixed;inset:0;z-index:60;background:rgba(15,23,42,.5);display:flex;align-items:center;justify-content:center;padding:20px}
+  .bb-modal-card{background:#fff;border-radius:14px;max-width:560px;width:100%;max-height:84vh;overflow:auto;padding:20px}
+  .bb-modal-head{display:flex;align-items:center;justify-content:space-between;margin-bottom:14px}
+  .bb-modal-head button{background:#f1f5f9;border:none;width:30px;height:30px;border-radius:8px;cursor:pointer;font-size:14px}
+  .bb-ref-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+  .bb-ref-item{border:1px solid var(--line);border-radius:10px;padding:12px 14px;background:#f8fafc}
+  .bb-ref-item .f{font-size:15px;color:var(--ink)}
+  .bb-ref-item .l{font-size:11px;color:var(--mut);margin-top:5px}
+  .bb-more{position:fixed;top:60px;right:14px;z-index:55;background:#fff;border:1px solid #cbd5e1;border-radius:10px;
+    box-shadow:0 16px 40px -16px rgba(15,23,42,.4);display:flex;flex-direction:column;min-width:190px;overflow:hidden}
+  .bb-more button{background:#fff;border:none;text-align:left;padding:12px 16px;font-size:14px;cursor:pointer;font-family:inherit;color:var(--ink2)}
+  .bb-more button:hover{background:#f1f5f9}
+  @media(max-width:760px){
+    .bb-main.split{flex-direction:column}
+    .bb-divider{width:auto;height:1px}
+    .bb-section{max-width:42vw}
+    .bb-tool span:not(.ic){display:none}
+    .bb-calc{width:92vw;left:4vw}
+    .bb-back,.bb-next{padding:10px 18px}
+  }
   .sb-students{flex:1;overflow-y:auto;display:flex;flex-direction:column;gap:2px;margin:0 -4px;padding:0 4px}
   .sb-students::-webkit-scrollbar{width:6px}
   .sb-students::-webkit-scrollbar-thumb{background:rgba(255,255,255,.12);border-radius:99px}
@@ -2384,18 +2457,20 @@ function renderExamIntro(){
   const opts = (i.students||[]).map(s=>`<option value="${esc(s.id)}">${esc(s.name)}</option>`).join("");
   document.getElementById("view-exam").innerHTML = `
     <div class="exam-card">
-      <div class="ey" style="color:var(--amber);font-size:11px;letter-spacing:.16em;text-transform:uppercase;margin-bottom:6px">SAT Practice Test</div>
-      <h2 style="margin:0 0 6px;font-size:22px;color:var(--ink)">${esc(i.title||"SAT 시험")}</h2>
+      <div class="ey" style="color:var(--amber);font-size:11px;letter-spacing:.16em;text-transform:uppercase;margin-bottom:6px">IMSAT · Practice Test</div>
+      <h2 style="margin:0 0 6px;font-size:22px;color:var(--ink)">${esc(i.title||"IMSAT 모의고사")}</h2>
       <p class="muted" style="margin:0 0 18px">${esc(i.secLabel)} · ${i.count}문항 · 제한시간 ${Math.round(i.timeLimitSec/60)}분</p>
       <label class="fld">이름을 선택하세요</label>
       <select id="examStudent">${opts||'<option value="">등록된 학생이 없습니다</option>'}</select>
       <div id="examIntroErr"></div>
       <ul class="muted" style="font-size:13px;line-height:1.7;margin:16px 0 18px;padding-left:18px">
         <li>시작하면 타이머가 작동하며, 시간이 끝나면 자동 제출됩니다.</li>
-        <li>문항을 오가며 풀 수 있고, 검토 표시를 해둘 수 있습니다.</li>
+        <li>문항을 오가며 풀 수 있고, 검토 표시(Mark for Review)를 해둘 수 있습니다.</li>
+        <li>Math는 계산기·공식 레퍼런스를 쓸 수 있습니다.</li>
         <li>제출 후 점수와 정답·해설을 바로 확인합니다.</li>
       </ul>
       <button class="btn btn-primary" onclick="beginExam()">시험 시작</button>
+      <div class="muted" style="font-size:11px;margin-top:14px;line-height:1.5">본 모의고사는 College Board와 무관하며, SAT는 College Board의 등록 상표입니다. 모든 문항은 IMSAT가 생성한 연습용입니다.</div>
     </div>`;
 }
 
@@ -2404,7 +2479,8 @@ function beginExam(){
   const sid=sel && sel.value;
   if(!sid){ document.getElementById("examIntroErr").innerHTML='<div class="err" style="margin-top:10px">이름을 선택하세요.</div>'; return; }
   EX.studentId=sid; EX.studentName=sel.options[sel.selectedIndex].text;
-  EX.answers={}; EX.marks={}; EX.idx=0;
+  EX.answers={}; EX.marks={}; EX.elim={}; EX.idx=0;
+  EX.elimMode=false; EX.timerHidden=false; EX.calcOpen=false;
   EX.remain=EX.info.timeLimitSec;
   EX.timer=setInterval(()=>{ EX.remain--; const t=document.getElementById("examTimer");
     if(t) t.textContent=fmtTime(Math.max(0,EX.remain));
@@ -2414,21 +2490,51 @@ function beginExam(){
 }
 
 function renderExamShell(){
+  const isMath = EX.info.section==='math';
   document.getElementById("view-exam").innerHTML = `
-    <div class="exam-top">
-      <div class="exam-title">${esc(EX.info.title||"SAT 시험")}</div>
-      <div class="exam-timer" id="examTimer">${fmtTime(EX.remain)}</div>
-    </div>
-    <div class="exam-body" id="examBody"></div>
-    <div class="exam-bottom">
-      <div class="exam-name">${esc(EX.studentName||"")}</div>
-      <button class="exam-navbtn" id="examNavBtn" onclick="toggleExamNav()">문항 <b id="examPos"></b></button>
-      <div class="exam-move">
-        <button class="btn btn-ghost" style="width:auto;padding:9px 16px" onclick="examGo(-1)">← 이전</button>
-        <button class="btn btn-primary" style="width:auto;padding:9px 18px" id="examNext" onclick="examGo(1)">다음 →</button>
+    <div class="bb-top">
+      <div class="bb-left">
+        <div class="bb-section">${esc(EX.info.title||"IMSAT 모의고사")}</div>
+        <div class="bb-sub">${esc(EX.info.secLabel||"")}</div>
+      </div>
+      <div class="bb-center">
+        <div class="bb-timer" id="examTimer">${fmtTime(EX.remain)}</div>
+        <button class="bb-hide" id="bbHide" onclick="toggleTimer()">Hide</button>
+      </div>
+      <div class="bb-right">
+        ${isMath?`<button class="bb-tool" onclick="toggleCalc()"><span class="ic">🖩</span><span>Calculator</span></button>
+                  <button class="bb-tool" onclick="openRef()"><span class="ic">📐</span><span>Reference</span></button>`:""}
+        <button class="bb-tool" onclick="toggleMore()"><span class="ic">⋯</span><span>More</span></button>
       </div>
     </div>
+    <div class="bb-main" id="bbMain"></div>
+    <div class="bb-bottom">
+      <div class="bb-name">${esc(EX.studentName||"")}</div>
+      <button class="bb-navbtn" onclick="toggleExamNav()">Question <b id="examPos"></b> ▴</button>
+      <div class="bb-move">
+        <button class="bb-back" onclick="examGo(-1)">Back</button>
+        <button class="bb-next" id="examNext" onclick="examGo(1)">Next</button>
+      </div>
+    </div>
+    <div id="calcPanel" class="bb-calc hide">
+      <div class="bb-calc-head"><span>Calculator</span><div><button class="bb-calc-x" onclick="toggleCalc()">✕</button></div></div>
+      <iframe id="calcFrame" title="Calculator" loading="lazy"></iframe>
+    </div>
+    <div id="refModal" class="bb-modal hide" onclick="if(event.target===this)closeRef()">
+      <div class="bb-modal-card">
+        <div class="bb-modal-head"><b>Reference</b><button onclick="closeRef()">✕</button></div>
+        <div id="refBody"></div>
+      </div>
+    </div>
+    <div id="moreMenu" class="bb-more hide">
+      <button onclick="toggleTimer();toggleMore()">타이머 숨기기 / 표시</button>
+      <button onclick="toggleMore();confirmSubmitExam()">시험 제출</button>
+    </div>
     <div class="exam-navpop hide" id="examNavPop"></div>`;
+  if(EX.menuClose) document.removeEventListener("click", EX.menuClose);
+  EX.menuClose=(e)=>{ const m=document.getElementById("moreMenu");
+    if(m && !m.classList.contains("hide") && !m.contains(e.target) && !e.target.closest(".bb-right")) m.classList.add("hide"); };
+  setTimeout(()=>document.addEventListener("click", EX.menuClose),0);
 }
 
 function renderExamQuestion(){
@@ -2437,30 +2543,86 @@ function renderExamQuestion(){
   const hasChoices=["A","B","C","D"].some(c=>choices[c]!==undefined);
   const isGrid=(q.format==='grid')||!hasChoices;
   const cur=EX.answers[EX.idx]||"";
+  const elim=EX.elim[EX.idx]||{};
   let answerHtml;
   if(isGrid){
-    answerHtml = `<input class="exam-grid" type="text" placeholder="정답 입력" value="${esc(cur)}" oninput="setGridAns(this.value)" />`;
+    answerHtml = `<input class="bb-grid" type="text" placeholder="Answer" value="${esc(cur)}" oninput="setGridAns(this.value);updateGridPreview(this.value)" />
+      <div class="bb-preview" id="bbPreview">${cur?('Answer Preview: '+esc(cur)):''}</div>`;
   }else{
-    answerHtml = '<div class="exam-choices">'+["A","B","C","D"].filter(c=>choices[c]!==undefined).map(c=>
-      `<button class="exam-ch ${cur===c?'on':''}" onclick="setExamAns('${c}')"><span class="exam-ck">${c}</span><span>${esc(choices[c])}</span></button>`
+    answerHtml = '<div class="bb-choices">'+["A","B","C","D"].filter(c=>choices[c]!==undefined).map(c=>
+      `<div class="bb-ch ${cur===c?'on':''} ${elim[c]?'elim':''}">
+        <button class="bb-ch-main" onclick="setExamAns('${c}')"><span class="bb-ck">${c}</span><span class="bb-ch-txt">${esc(choices[c])}</span></button>
+        ${EX.elimMode?`<button class="bb-ch-elim" title="제외/복구" onclick="elimChoice('${c}')">${elim[c]?'↺':'⊘'}</button>`:''}
+      </div>`
     ).join("")+'</div>';
   }
-  document.getElementById("examBody").innerHTML = `
-    <div class="exam-qhead">
-      <span class="exam-qn">문항 ${esc(String(n))}</span>
-      ${q.skill?`<span class="pq-skill">${esc(q.skill)}</span>`:""}
-      <label class="exam-mark"><input type="checkbox" ${EX.marks[EX.idx]?'checked':''} onchange="toggleMark(this.checked)"/> 검토 표시</label>
+  const qbody = `
+    <div class="bb-qhead">
+      <span class="bb-qn">${esc(String(n))}</span>
+      <button class="bb-mark ${EX.marks[EX.idx]?'on':''}" onclick="toggleMarkCur()">🔖 Mark for Review</button>
+      ${!isGrid?`<button class="bb-elimtoggle ${EX.elimMode?'on':''}" title="선택지 지우개" onclick="toggleElim()">A̶B̶C̶</button>`:''}
     </div>
-    ${q.passage&&String(q.passage).trim()?`<div class="pq-passage">${esc(q.passage)}</div>`:""}
-    <div class="exam-stem">${esc(q.stem||"")}</div>
+    <div class="bb-stem">${esc(q.stem||"")}</div>
     ${answerHtml}`;
-  document.getElementById("examPos").textContent=(EX.idx+1)+" / "+EX.qs.length;
-  document.getElementById("examNext").textContent = (EX.idx===EX.qs.length-1)? "제출하기" : "다음 →";
-  typesetMath(document.getElementById("examBody"));
+  const hasPassage = q.passage && String(q.passage).trim();
+  const main=document.getElementById("bbMain");
+  if(hasPassage){
+    main.className="bb-main split";
+    main.innerHTML = `<div class="bb-pane bb-passage-pane"><div class="bb-passage">${esc(q.passage)}</div></div>
+      <div class="bb-divider"></div>
+      <div class="bb-pane bb-q-pane">${qbody}</div>`;
+  }else{
+    main.className="bb-main single";
+    main.innerHTML = `<div class="bb-pane bb-q-pane bb-q-center">${qbody}</div>`;
+  }
+  document.getElementById("examPos").textContent=(EX.idx+1)+" of "+EX.qs.length;
+  const nx=document.getElementById("examNext"); if(nx) nx.textContent=(EX.idx===EX.qs.length-1)?"제출":"Next";
+  typesetMath(main);
 }
-function setExamAns(v){ EX.answers[EX.idx]=v; renderExamQuestion(); }   // 객관식(재렌더로 하이라이트)
-function setGridAns(v){ EX.answers[EX.idx]=v; }                          // grid 입력(포커스 유지 위해 재렌더 안 함)
-function toggleMark(on){ EX.marks[EX.idx]=on; }
+function setExamAns(v){ EX.answers[EX.idx]=v; renderExamQuestion(); }
+function setGridAns(v){ EX.answers[EX.idx]=v; }
+function updateGridPreview(v){ const p=document.getElementById("bbPreview"); if(p) p.textContent=v?("Answer Preview: "+v):""; }
+function toggleMarkCur(){ EX.marks[EX.idx]=!EX.marks[EX.idx]; renderExamQuestion(); }
+function toggleElim(){ EX.elimMode=!EX.elimMode; renderExamQuestion(); }
+function elimChoice(c){
+  const m=EX.elim[EX.idx]||(EX.elim[EX.idx]={});
+  m[c]=!m[c];
+  if(m[c] && EX.answers[EX.idx]===c) delete EX.answers[EX.idx];   // 제외하면 선택 해제
+  renderExamQuestion();
+}
+function toggleTimer(){
+  EX.timerHidden=!EX.timerHidden;
+  const t=document.getElementById("examTimer"), h=document.getElementById("bbHide");
+  if(t) t.style.visibility=EX.timerHidden?"hidden":"visible";
+  if(h) h.textContent=EX.timerHidden?"Show":"Hide";
+}
+function toggleCalc(){
+  const p=document.getElementById("calcPanel"); if(!p) return;
+  EX.calcOpen=!EX.calcOpen; p.classList.toggle("hide", !EX.calcOpen);
+  const f=document.getElementById("calcFrame");
+  if(EX.calcOpen && f && !f.src) f.src="https://www.desmos.com/calculator";
+}
+function toggleMore(){ const m=document.getElementById("moreMenu"); if(m) m.classList.toggle("hide"); }
+function openRef(){
+  const m=document.getElementById("refModal"); if(!m) return;
+  document.getElementById("refBody").innerHTML=referenceHTML();
+  m.classList.remove("hide"); typesetMath(document.getElementById("refBody"));
+}
+function closeRef(){ const m=document.getElementById("refModal"); if(m) m.classList.add("hide"); }
+function referenceHTML(){
+  const items=[
+    ["\\(A=\\pi r^2\\)","원의 넓이"],["\\(C=2\\pi r\\)","원의 둘레"],
+    ["\\(A=\\ell w\\)","직사각형 넓이"],["\\(A=\\tfrac12 bh\\)","삼각형 넓이"],
+    ["\\(c^2=a^2+b^2\\)","피타고라스"],
+    ["\\(30^\\circ\\!-\\!60^\\circ\\!-\\!90^\\circ:\\ x,\\ x\\sqrt3,\\ 2x\\)","특수삼각형"],
+    ["\\(45^\\circ\\!-\\!45^\\circ\\!-\\!90^\\circ:\\ s,\\ s,\\ s\\sqrt2\\)","특수삼각형"],
+    ["\\(V=\\ell w h\\)","직육면체 부피"],["\\(V=\\pi r^2 h\\)","원기둥 부피"],
+    ["\\(V=\\tfrac43\\pi r^3\\)","구 부피"],["\\(V=\\tfrac13\\pi r^2 h\\)","원뿔 부피"],
+    ["\\(V=\\tfrac13 \\ell w h\\)","각뿔 부피"],
+    ["원의 각 \\(=360^\\circ=2\\pi\\) rad","각"],["삼각형 내각 합 \\(=180^\\circ\\)","각"]
+  ];
+  return '<div class="bb-ref-grid">'+items.map(([f,l])=>`<div class="bb-ref-item"><div class="f">${f}</div><div class="l">${esc(l)}</div></div>`).join("")+'</div>';
+}
 function examGo(d){
   if(d>0 && EX.idx===EX.qs.length-1){ confirmSubmitExam(); return; }
   EX.idx=Math.max(0,Math.min(EX.qs.length-1,EX.idx+d));
