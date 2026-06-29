@@ -2976,19 +2976,19 @@ function presGo(d){ PRES.idx=Math.max(0,Math.min(PRES.qs.length-1,PRES.idx+d)); 
 function presToggleAnswer(){ PRES.showAnswer=!PRES.showAnswer; renderPresent(); }
 function exitPresent(){ if(PRES&&PRES.ch){ try{PRES.ch.close();}catch(_e){} } PRES=null; document.body.classList.remove("present-mode"); document.getElementById("view-present").classList.add("hide"); showDashboard(); }
 
-function presQuestionHtml(q, sa){
+function presQuestionHtml(q, showCorrect, showExp){
   const n=q.number||(PRES.idx+1); const choices=q.choices||{};
   const hasChoices=["A","B","C","D"].some(c=>choices[c]!==undefined);
   const isGrid=(q.format==='grid')||!hasChoices; const ans=String(q.answer||"").toUpperCase();
   const choiceHtml = isGrid
-    ? `<div class="pr-grid">학생 직접 입력 (grid-in)${sa?` · <b style="color:var(--teal)">정답 ${esc(q.answer)}</b>`:""}</div>`
+    ? `<div class="pr-grid">학생 직접 입력 (grid-in)${showCorrect?` · <b style="color:var(--teal)">정답 ${esc(q.answer)}</b>`:""}</div>`
     : '<ul class="pr-choices">'+["A","B","C","D"].filter(c=>choices[c]!==undefined).map(c=>
-        `<li class="${sa&&ans===c?'correct':''}"><span class="ck">${c}</span><span>${esc(choices[c])}</span></li>`).join("")+'</ul>';
+        `<li class="${showCorrect&&ans===c?'correct':''}"><span class="ck">${c}</span><span>${esc(choices[c])}</span></li>`).join("")+'</ul>';
   return `<div class="pr-qhead"><span class="pr-num">${esc(String(n))}</span>${q.skill?`<span class="pq-skill">${esc(q.skill)}</span>`:""}${q.difficulty?`<span class="muted" style="font-size:13px">${esc(DIFF_LABEL[q.difficulty]||q.difficulty)}</span>`:""}</div>
     ${q.passage&&String(q.passage).trim()?`<div class="pr-passage">${esc(q.passage)}</div>`:""}
     <div class="pr-stem">${esc(q.stem||"")}</div>
     ${choiceHtml}
-    ${sa&&q.explanation?`<div class="pr-exp"><b>해설</b><br>${esc(q.explanation)}</div>`:""}`;
+    ${showExp&&q.explanation?`<div class="pr-exp"><b>해설</b><br>${esc(q.explanation)}</div>`:""}`;
 }
 function renderPresent(){
   if(!PRES) return;
@@ -2996,22 +2996,23 @@ function renderPresent(){
   const head=`<div class="pr-title">${esc(PRES.set?PRES.set.title:"IMSAT 수업")}${q._mod?(' <span class="pr-mod">'+esc(q._mod)+'</span>'):''}</div>`;
   const counter=`<div class="pr-counter">문항 ${PRES.idx+1} / ${PRES.qs.length}</div>`;
   if(PRES.mode==='screen'){
+    // 학생 화면: 문제만, 정답 토글 시 '정답만'(해설 X)
     v.innerHTML=`
       <div class="pr-top">${head}${counter}<button class="pr-x" onclick="window.close()">닫기 ✕</button></div>
-      <div class="pr-body pr-screen"><div class="pr-q pr-q-big">${presQuestionHtml(q,sa)}</div></div>`;
+      <div class="pr-body pr-screen"><div class="pr-q pr-q-big">${presQuestionHtml(q, sa, false)}</div></div>`;
     typesetMath(document.querySelector("#view-present .pr-q"));
     return;
   }
-  // 콘솔(선생님)
+  // 선생님 콘솔: 정답·해설 항상 표시
   v.innerHTML=`
     <div class="pr-top">${head}<span style="font-size:12px;color:#fbbf24;font-weight:800">선생님 콘솔</span>${counter}<button class="pr-x" onclick="exitPresent()">수업 종료 ✕</button></div>
     <div class="pr-body">
-      <div class="pr-q">${presQuestionHtml(q,sa)}</div>
+      <div class="pr-q">${presQuestionHtml(q, true, true)}</div>
       <div class="pr-tips" id="prTips"></div>
     </div>
     <div class="pr-bottom">
       <button class="pr-nav" onclick="presGo(-1)" ${PRES.idx===0?'disabled':''}>← 이전</button>
-      <button class="pr-ans ${sa?'on':''}" onclick="presToggleAnswer()">${sa?'정답·해설 숨기기(화면)':'정답·해설 보이기(화면)'}</button>
+      <button class="pr-ans ${sa?'on':''}" onclick="presToggleAnswer()">${sa?'학생 화면 정답 숨기기':'학생 화면에 정답 보이기'}</button>
       <button class="pr-nav" onclick="presGo(1)" ${PRES.idx===PRES.qs.length-1?'disabled':''}>다음 →</button>
     </div>`;
   typesetMath(document.querySelector("#view-present .pr-q"));
