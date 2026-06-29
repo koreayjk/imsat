@@ -828,13 +828,13 @@
       <label class="fld" style="margin-top:14px">세부 유형 <span class="muted">(복수 선택 · 미선택 시 영역 전반)</span></label>
       <div class="gen-topics" id="genTopicsBox"></div>
 
-      <label style="display:flex;align-items:center;gap:9px;margin-top:16px;padding:12px 14px;border:1px solid #fed7aa;border-radius:11px;background:var(--amber-bg);cursor:pointer">
-        <input type="checkbox" id="genAdaptive" onchange="onAdaptiveToggle()" style="width:auto;margin:0" />
-        <span style="font-size:13px"><b style="color:#b45309">적응형 2모듈 시험(실전형)</b> — 모듈1을 풀면 점수에 따라 모듈2가 쉬움/어려움으로 자동 배정됩니다. <span class="muted" id="genAdaptiveNote"></span></span>
-      </label>
+      <div style="margin-top:16px;padding:12px 14px;border:1px solid #fed7aa;border-radius:11px;background:var(--amber-bg)">
+        <b style="color:#b45309;font-size:13px">적응형 2모듈 시험</b>
+        <span class="muted" style="font-size:12px"> — 모듈1을 풀면 점수에 따라 모듈2가 쉬움/어려움으로 자동 배정됩니다.</span>
+      </div>
 
-      <div id="genThreshRow" class="hide" style="margin-top:12px">
-        <label class="fld">모듈2 난이도 배정 기준 <span class="muted">(모듈1 정답률이 이 값 이상이면 '어려움' 배정)</span></label>
+      <div style="margin-top:14px">
+        <label class="fld">모듈2 배정 기준 <span class="muted">(모듈1 정답률이 이 값 이상이면 '어려움')</span></label>
         <div class="seg" id="genThreshSeg">
           <button type="button" data-t="0.5">50%</button>
           <button type="button" data-t="0.6" class="on">60% (기본)</button>
@@ -842,23 +842,22 @@
         </div>
       </div>
 
-      <div class="grid2" style="margin-top:14px" id="genDiffCountRow">
+      <div class="grid2" style="margin-top:14px">
         <div>
-          <label class="fld">난이도</label>
+          <label class="fld">모듈1 난이도</label>
           <div class="seg" id="genDiffSeg">
             <button data-d="easy">Easy</button>
-            <button data-d="medium" class="on">Medium</button>
+            <button data-d="medium">Medium</button>
             <button data-d="hard">Hard</button>
-            <button data-d="mixed">혼합</button>
+            <button data-d="mixed" class="on">혼합</button>
           </div>
         </div>
         <div>
-          <label class="fld">문항 수 <span class="muted">(실전 기준 자동)</span></label>
-          <input id="genCount" type="number" min="1" max="54" value="5" />
+          <label class="fld">총 문항 수 <span class="muted">(2모듈 합)</span></label>
+          <input id="genCount" type="number" min="2" max="60" value="54" oninput="updateGenCountHint()" />
           <div style="display:flex;gap:6px;margin-top:6px;flex-wrap:wrap">
-            <button type="button" class="topic-chip" onclick="setGenCount('quick')">빠른 연습 5</button>
-            <button type="button" class="topic-chip" onclick="setGenCount('module')">1 모듈</button>
-            <button type="button" class="topic-chip" onclick="setGenCount('full')">풀 세트(2모듈)</button>
+            <button type="button" class="topic-chip" onclick="setGenCount('quick')">빠른 테스트</button>
+            <button type="button" class="topic-chip" onclick="setGenCount('full')">풀 세트</button>
           </div>
           <div class="muted" id="genCountHint" style="font-size:11px;margin-top:5px"></div>
         </div>
@@ -1875,29 +1874,19 @@ document.querySelectorAll("#genSectionSeg button").forEach(b=>b.addEventListener
 // 실전 Digital SAT 문항 수: R&W 모듈 27/풀 54, Math 모듈 22/풀 44
 function setGenCount(type){
   const isMath = genSection==='math';
-  let n = 5;
-  if(type==='module') n = isMath?22:27;
-  else if(type==='full') n = isMath?44:54;
+  let n = 10;                          // 빠른 테스트
+  if(type==='full') n = isMath?44:54;  // 풀 세트(2모듈)
   document.getElementById("genCount").value = n;
   updateGenCountHint();
 }
+function genTotalCount(){ let t=parseInt(document.getElementById("genCount").value,10); if(isNaN(t)||t<2) t=2; if(t>60) t=60; return t; }
+function genPerModule(){ return Math.max(1, Math.round(genTotalCount()/2)); }
 function updateGenCountHint(){
   const el=document.getElementById("genCountHint"); if(!el) return;
-  el.textContent = (genSection==='math')
-    ? "실전 Math: 한 모듈 22문항 · 풀 세트 44문항"
-    : "실전 R&W: 한 모듈 27문항 · 풀 세트 54문항";
-  const n=document.getElementById("genAdaptiveNote");
-  if(n) n.textContent = (genSection==='math') ? "(Math: 모듈당 22문항)" : "(R&W: 모듈당 27문항)";
+  const per=genPerModule();
+  el.textContent = "모듈당 "+per+"문항 (학생은 총 "+(per*2)+"문항 풀이) · 모듈2는 쉬움/어려움 둘 다 생성";
 }
 let genThreshold=0.6;
-function isAdaptiveOn(){ const c=document.getElementById("genAdaptive"); return !!(c&&c.checked); }
-function onAdaptiveToggle(){
-  const on=isAdaptiveOn();
-  const row=document.getElementById("genDiffCountRow");
-  if(row){ row.style.opacity=on?".45":"1"; row.style.pointerEvents=on?"none":"auto"; }
-  const tr=document.getElementById("genThreshRow"); if(tr) tr.classList.toggle("hide", !on);
-  updateGenCountHint();
-}
 document.querySelectorAll("#genThreshSeg button").forEach(b=>b.addEventListener("click",()=>{
   genThreshold=parseFloat(b.dataset.t);
   document.querySelectorAll("#genThreshSeg button").forEach(x=>x.classList.toggle("on",x===b));
@@ -1929,8 +1918,8 @@ function showGenerate(student=null, weakTypes=[], section="rw"){
   genStudent = student;
   genWeakNote = "";
   genTopics = [];
-  setGenSeg(section, "medium");
-  document.getElementById("genCount").value="5";
+  setGenSeg(section, "mixed");
+  document.getElementById("genCount").value=(section==='math')?44:54;
   document.getElementById("genNote").value="";
   document.getElementById("genErr").innerHTML="";
   document.getElementById("genHeadTitle").textContent = student ? (student.name+" 학생 맞춤 출제") : "새 문제 출제";
@@ -1946,10 +1935,9 @@ function showGenerate(student=null, weakTypes=[], section="rw"){
       +'<div class="muted" style="font-size:13px">진단에서 누적된 약점: <b>'+esc(genWeakNote)+'</b><br>이 유형을 겨냥한 문제로 출제합니다. 아래에서 유형·난이도를 더 조절할 수 있어요.</div></div>';
   } else { wbox.innerHTML=""; }
   renderGenTopics();
-  const ad=document.getElementById("genAdaptive"); if(ad) ad.checked=false;
   genThreshold=0.6;
   document.querySelectorAll("#genThreshSeg button").forEach(x=>x.classList.toggle("on", x.dataset.t==="0.6"));
-  onAdaptiveToggle();
+  updateGenCountHint();
   show("generate");
 }
 function genBack(){ if(genStudent) openStudent(genStudent); else showDashboard(); }
@@ -2105,36 +2093,15 @@ async function nextSeq(section){
   catch(_e){ return null; }
 }
 
-async function generateProblems(){
-  if(isAdaptiveOn()){ return generateAdaptive(); }
-  const errBox=document.getElementById("genErr"); errBox.innerHTML="";
-  if(!configured){ errBox.innerHTML='<div class="err">Supabase 설정을 먼저 완료하세요.</div>'; return; }
-  let count=parseInt(document.getElementById("genCount").value,10);
-  if(isNaN(count)||count<1) count=5;
-  if(count>54) count=54;
-  const note=document.getElementById("genNote").value.trim();
-  const btn=document.getElementById("genBtn"); btn.disabled=true; btn.textContent="이전 출제 확인 중…";
-  try{
-    const [avoidStems, seq] = await Promise.all([ fetchAvoidStems(genSection), nextSeq(genSection) ]);
-    currentPaper=await runGeneration({ section:genSection, topics:genTopics, difficulty:genDifficulty,
-      count, note, weakNote:genWeakNote, student:genStudent, variation:false, avoidStems, seq }, btn);
-    paperSaveWarn="";
-    try{ await savePaper(); }catch(se){ paperSaveWarn=String(se.message||se); }
-    paperReturn = genStudent ? (st=>()=>openStudent(st))(genStudent) : showDashboard;
-    renderPaper();
-    show("paper");
-  }catch(e){
-    errBox.innerHTML='<div class="err">생성에 실패했습니다.<br><span class="muted">'+esc(String(e.message||e))+'</span></div>';
-  }finally{
-    btn.disabled=false; btn.textContent="문제 생성 → 시험지 만들기";
-  }
-}
+// 항상 적응형 2모듈 출제
+async function generateProblems(){ return generateAdaptive(); }
 
-// 적응형 2모듈 출제 (모듈1 중간난이도 + 모듈2 쉬움/어려움)
+// 적응형 2모듈 출제 (모듈1=선택 난이도 + 모듈2 쉬움/어려움)
 async function generateAdaptive(){
   const errBox=document.getElementById("genErr"); errBox.innerHTML="";
   if(!configured){ errBox.innerHTML='<div class="err">Supabase 설정을 먼저 완료하세요.</div>'; return; }
-  const moduleN = genSection==='math' ? 22 : 27;
+  const moduleN = genPerModule();
+  const m1Diff = genDifficulty || 'mixed';
   const note=document.getElementById("genNote").value.trim();
   const secLabel=SECTION_LABEL[genSection];
   const btn=document.getElementById("genBtn"); btn.disabled=true;
@@ -2143,7 +2110,7 @@ async function generateAdaptive(){
     let avoid = await fetchAvoidStems(genSection);
     const setLabel=(s)=>{ btn.textContent=s; };
     setLabel("모듈 1 생성 중… (1/3)");
-    const m1 = await runGeneration({ section:genSection, topics:genTopics, difficulty:'mixed', count:moduleN, note, weakNote:genWeakNote, student:genStudent, variation:false, avoidStems:avoid }, btn);
+    const m1 = await runGeneration({ section:genSection, topics:genTopics, difficulty:m1Diff, count:moduleN, note, weakNote:genWeakNote, student:genStudent, variation:false, avoidStems:avoid }, btn);
     avoid = avoid.concat(m1.questions.map(q=>String(q.stem||"").slice(0,70)));
     setLabel("모듈 2 (쉬움) 생성 중… (2/3)");
     const m2e = await runGeneration({ section:genSection, topics:genTopics, difficulty:'easy', count:moduleN, note, weakNote:genWeakNote, student:genStudent, variation:false, avoidStems:avoid }, btn);
@@ -2155,7 +2122,7 @@ async function generateAdaptive(){
     const modules={ m1:renum(m1.questions,0), m2e:renum(m2e.questions,0), m2h:renum(m2h.questions,0) };
     currentPaper={
       title: ("IMSAT "+secLabel+" 적응형 모의고사")+(seq?(" #"+seq):""),
-      section: genSection, difficulty:'mixed', topics:genTopics,
+      section: genSection, difficulty:m1Diff, topics:genTopics,
       adaptive:true, modules, routeThreshold:genThreshold,
       questions: [...modules.m1, ...modules.m2e, ...modules.m2h],
       studentName: genStudent? genStudent.name : null, savedId:null
