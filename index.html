@@ -346,6 +346,51 @@
   .sb-addstu{background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.12);color:#fbbf24;
     font-size:11px;font-weight:700;padding:3px 9px;border-radius:7px;cursor:pointer;letter-spacing:0;font-family:inherit}
   .sb-addstu:hover{background:rgba(251,191,36,.18)}
+
+  /* ============ 학생 시험 응시 모드 ============ */
+  body.exam-mode{padding-left:0 !important;background:#f1f5f9}
+  body.exam-mode #sidebar, body.exam-mode #sbToggleOpen, body.exam-mode header.top, body.exam-mode #configWarn{display:none!important}
+  body.exam-mode .wrap{max-width:860px;padding-top:18px}
+  .exam-card{background:#fff;border:1px solid var(--line);border-radius:14px;padding:24px;margin-bottom:16px;
+    box-shadow:0 10px 30px -20px rgba(15,23,42,.3)}
+  .exam-top{position:sticky;top:0;z-index:20;display:flex;align-items:center;justify-content:space-between;
+    background:#0f172a;color:#fff;padding:12px 18px;border-radius:12px;margin-bottom:14px;box-shadow:0 8px 20px -12px rgba(0,0,0,.5)}
+  .exam-title{font-weight:700;font-size:14px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:60%}
+  .exam-timer{font-weight:800;font-size:18px;font-variant-numeric:tabular-nums;background:rgba(255,255,255,.1);padding:4px 12px;border-radius:8px}
+  .exam-body{background:#fff;border:1px solid var(--line);border-radius:14px;padding:22px;margin-bottom:14px;min-height:240px}
+  .exam-qhead{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:12px;padding-bottom:12px;border-bottom:1px solid var(--line)}
+  .exam-qn{font-weight:800;color:var(--ink);font-size:15px}
+  .exam-mark{margin-left:auto;font-size:12px;color:var(--mut);display:flex;align-items:center;gap:5px;cursor:pointer}
+  .exam-stem{font-size:16px;line-height:1.7;color:var(--ink);font-weight:600;margin:12px 0;white-space:pre-line}
+  .exam-choices{display:flex;flex-direction:column;gap:9px;margin-top:8px}
+  .exam-ch{display:flex;gap:11px;align-items:flex-start;text-align:left;width:100%;padding:13px 15px;border:1.5px solid #cbd5e1;
+    border-radius:11px;background:#fff;font-size:15px;line-height:1.5;color:var(--ink2);cursor:pointer;transition:.12s;font-family:inherit}
+  .exam-ch:hover{border-color:var(--amber);background:#fffbeb}
+  .exam-ch.on{border-color:var(--navy);background:#0f172a;color:#fff}
+  .exam-ck{flex:0 0 26px;height:26px;border:1.5px solid currentColor;border-radius:50%;display:flex;align-items:center;
+    justify-content:center;font-weight:800;font-size:13px;opacity:.9}
+  .exam-ch.on .exam-ck{background:#fff;color:#0f172a;border-color:#fff}
+  .exam-grid{max-width:280px;font-size:16px;padding:12px 14px}
+  .exam-bottom{display:flex;align-items:center;gap:12px;flex-wrap:wrap;background:#fff;border:1px solid var(--line);
+    border-radius:12px;padding:12px 16px;position:sticky;bottom:0;z-index:20;box-shadow:0 -6px 20px -14px rgba(15,23,42,.3)}
+  .exam-name{font-weight:700;color:var(--ink);font-size:13px}
+  .exam-navbtn{margin:0 auto;background:#f1f5f9;border:1px solid var(--line);border-radius:9px;padding:8px 16px;
+    font-size:13px;font-weight:700;color:var(--ink2);cursor:pointer;font-family:inherit}
+  .exam-move{display:flex;gap:8px}
+  .exam-navpop{position:fixed;left:50%;bottom:80px;transform:translateX(-50%);background:#fff;border:1px solid var(--line);
+    border-radius:14px;padding:16px;box-shadow:0 20px 50px -20px rgba(15,23,42,.5);z-index:40;max-width:90vw}
+  .exam-navgrid{display:grid;grid-template-columns:repeat(8,1fr);gap:7px}
+  .exam-navgrid button{width:34px;height:34px;border:1px solid #cbd5e1;border-radius:8px;background:#fff;font-size:13px;
+    font-weight:700;color:var(--mut);cursor:pointer}
+  .exam-navgrid button.done{background:#0f172a;color:#fff;border-color:#0f172a}
+  .exam-navgrid button.cur{outline:2px solid var(--amber);outline-offset:1px}
+  .exam-navgrid button.mark{box-shadow:inset 0 -4px 0 var(--amber)}
+  .pq-choices li.rv{padding:8px 10px;border-radius:8px;margin-bottom:3px}
+  .pq-choices li.rv.correct{background:var(--teal-bg)}
+  .pq-choices li.rv.correct .ck{background:var(--teal);border-color:var(--teal);color:#fff}
+  .pq-choices li.rv.wrong{background:var(--rose-bg)}
+  .pq-choices li.rv.wrong .ck{background:var(--rose);border-color:var(--rose);color:#fff}
+  @media(max-width:560px){ .exam-navgrid{grid-template-columns:repeat(6,1fr)} }
   .sb-students{flex:1;overflow-y:auto;display:flex;flex-direction:column;gap:2px;margin:0 -4px;padding:0 4px}
   .sb-students::-webkit-scrollbar{width:6px}
   .sb-students::-webkit-scrollbar-thumb{background:rgba(255,255,255,.12);border-radius:99px}
@@ -746,6 +791,9 @@
 
   <!-- ============ 오답노트 묶음 ============ -->
   <section id="view-mistakes" class="hide"></section>
+
+  <!-- ============ 학생 온라인 시험 응시 ============ -->
+  <section id="view-exam" class="hide"></section>
 </div>
 
 <script>
@@ -757,6 +805,7 @@ const SUPABASE_URL  = "https://lnrugwschlcesaaertgc.supabase.co";
 const SUPABASE_ANON = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImxucnVnd3NjaGxjZXNhYWVydGdjIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODA0ODczNzgsImV4cCI6MjA5NjA2MzM3OH0.JTpEUF2TO2NcuS1ak04hqd2IYfZ2bYn40L3EaLIwVGw";
 // Edge Function 엔드포인트 (위 URL 기반 자동 구성)
 const ANALYZE_URL = SUPABASE_URL + "/functions/v1/analyze";
+const TEST_URL = SUPABASE_URL + "/functions/v1/test";
 // ============================================================
 
 let sb = null;
@@ -2017,7 +2066,9 @@ function renderPaper(){
     <div class="btn-row no-print" style="margin-bottom:16px;flex-wrap:wrap">
       <button class="btn btn-ghost" id="regenBtn" onclick="regenerateSimilar()">🔄 비슷하게 새 문제</button>
       <button class="btn btn-ghost" onclick="startDiagnosisFromPaper()">✏️ 이 시험지로 진단</button>
+      <button class="btn btn-ghost" onclick="makeShareLink()">🔗 시험 링크 만들기</button>
     </div>
+    <div id="shareBox" class="no-print"></div>
     ${warn}
     <div class="paper" id="paperEl">
       <div class="paper-head"><h2>${esc(p.title)}</h2><div class="meta">${meta} · INTO유학센터</div></div>
@@ -2038,6 +2089,36 @@ function printPaper(withAns){
   window.print();
 }
 function paperBack(){ (paperReturn||showDashboard)(); }
+
+// 시험 링크 만들기 (학생이 온라인 응시)
+async function makeShareLink(){
+  const box=document.getElementById("shareBox");
+  if(!currentPaper || !currentPaper.savedId){ box.innerHTML='<div class="err">저장된 시험지에서만 링크를 만들 수 있습니다. 먼저 출제·저장하세요.</div>'; return; }
+  box.innerHTML='<div class="muted" style="padding:8px">링크 만드는 중…</div>';
+  try{
+    let token=currentPaper.shareToken;
+    if(!token){
+      token = (window.crypto&&crypto.randomUUID)? crypto.randomUUID().replace(/-/g,"") : (Math.random().toString(36).slice(2)+Date.now().toString(36));
+      const { error } = await sb.from("problem_sets").update({ share_token: token }).eq("id", currentPaper.savedId);
+      if(error) throw new Error(error.message);
+      currentPaper.shareToken=token;
+    }
+    const link = location.origin + location.pathname + "?test=" + token;
+    box.innerHTML = `<div class="card" style="background:var(--teal-bg);border-color:#99f6e4">
+      <div style="font-weight:800;color:#0f766e;font-size:14px;margin-bottom:6px">🔗 학생 응시 링크</div>
+      <div style="display:flex;gap:8px;flex-wrap:wrap">
+        <input id="shareLink" readonly value="${esc(link)}" style="flex:1;min-width:220px" onclick="this.select()" />
+        <button class="btn btn-primary" style="width:auto;padding:9px 16px" onclick="copyShareLink()">복사</button>
+      </div>
+      <div class="muted" style="font-size:12px;margin-top:8px">학생이 이 링크로 들어가 본인 이름을 고르고 시험을 봅니다. 제출하면 점수·평가가 자동으로 들어옵니다.</div>
+    </div>`;
+  }catch(e){ box.innerHTML='<div class="err">링크 생성 실패: '+esc(String(e.message||e))+'</div>'; }
+}
+function copyShareLink(){
+  const i=document.getElementById("shareLink"); if(!i) return; i.select();
+  try{ navigator.clipboard.writeText(i.value); }catch(_e){ document.execCommand("copy"); }
+  const b=event&&event.target; if(b){ const t=b.textContent; b.textContent="복사됨 ✓"; setTimeout(()=>b.textContent=t,1500); }
+}
 
 // ---------- 출제 보관함 ----------
 function setRow(s, origin){
@@ -2083,7 +2164,7 @@ async function openProblemSet(id, origin){
   const { data, error } = await sb.from("problem_sets").select("*").eq("id",id).single();
   if(error || !data){ document.getElementById("view-paper").innerHTML='<div class="err">시험지를 불러오지 못했습니다.</div>'; return; }
   currentPaper={ title:data.title, section:data.section, difficulty:data.difficulty,
-    topics:data.topics||[], questions:data.questions||[],
+    topics:data.topics||[], questions:data.questions||[], shareToken:data.share_token||null,
     studentName:(origin==='student'&&currentStudent)?currentStudent.name:null, savedId:data.id };
   paperSaveWarn="";
   if(origin==='student' && currentStudent){ const st=currentStudent; genStudent=st; genWeakNote=""; paperReturn=()=>openStudent(st); }
@@ -2258,8 +2339,200 @@ async function initAuth(){
 }
 document.getElementById("authPass").addEventListener("keydown",e=>{ if(e.key==="Enter") login(); });
 
-// 시작
-if(configured) initAuth();
+// ============================================================
+//  학생 온라인 시험 응시 (링크 ?test=토큰)
+// ============================================================
+const EX = { token:null, info:null, qs:[], answers:{}, marks:{}, idx:0, remain:0, timer:null, navOpen:false };
+
+async function startExam(token){
+  EX.token = token;
+  const root = document.getElementById("view-exam");
+  root.innerHTML = '<div class="loading"><div class="spinner"></div>시험 정보를 불러오는 중…</div>';
+  try{
+    const res = await fetch(TEST_URL, { method:"POST", headers:{ "Content-Type":"application/json", "apikey":SUPABASE_ANON },
+      body: JSON.stringify({ action:"info", token }) });
+    const info = await res.json();
+    if(info.error) throw new Error(info.error);
+    EX.info = info; EX.qs = info.questions||[];
+    renderExamIntro();
+  }catch(e){
+    root.innerHTML = '<div class="exam-card"><div class="err">시험을 열 수 없습니다.<br><span class="muted">'+esc(String(e.message||e))+'</span></div></div>';
+  }
+}
+function fmtTime(s){ const m=Math.floor(s/60), ss=s%60; return m+":"+String(ss).padStart(2,"0"); }
+
+function renderExamIntro(){
+  const i=EX.info;
+  const opts = (i.students||[]).map(s=>`<option value="${esc(s.id)}">${esc(s.name)}</option>`).join("");
+  document.getElementById("view-exam").innerHTML = `
+    <div class="exam-card">
+      <div class="ey" style="color:var(--amber);font-size:11px;letter-spacing:.16em;text-transform:uppercase;margin-bottom:6px">SAT Practice Test</div>
+      <h2 style="margin:0 0 6px;font-size:22px;color:var(--ink)">${esc(i.title||"SAT 시험")}</h2>
+      <p class="muted" style="margin:0 0 18px">${esc(i.secLabel)} · ${i.count}문항 · 제한시간 ${Math.round(i.timeLimitSec/60)}분</p>
+      <label class="fld">이름을 선택하세요</label>
+      <select id="examStudent">${opts||'<option value="">등록된 학생이 없습니다</option>'}</select>
+      <div id="examIntroErr"></div>
+      <ul class="muted" style="font-size:13px;line-height:1.7;margin:16px 0 18px;padding-left:18px">
+        <li>시작하면 타이머가 작동하며, 시간이 끝나면 자동 제출됩니다.</li>
+        <li>문항을 오가며 풀 수 있고, 검토 표시를 해둘 수 있습니다.</li>
+        <li>제출 후 점수와 정답·해설을 바로 확인합니다.</li>
+      </ul>
+      <button class="btn btn-primary" onclick="beginExam()">시험 시작</button>
+    </div>`;
+}
+
+function beginExam(){
+  const sel=document.getElementById("examStudent");
+  const sid=sel && sel.value;
+  if(!sid){ document.getElementById("examIntroErr").innerHTML='<div class="err" style="margin-top:10px">이름을 선택하세요.</div>'; return; }
+  EX.studentId=sid; EX.studentName=sel.options[sel.selectedIndex].text;
+  EX.answers={}; EX.marks={}; EX.idx=0;
+  EX.remain=EX.info.timeLimitSec;
+  EX.timer=setInterval(()=>{ EX.remain--; const t=document.getElementById("examTimer");
+    if(t) t.textContent=fmtTime(Math.max(0,EX.remain));
+    if(EX.remain<=0){ clearInterval(EX.timer); submitExam(true); } }, 1000);
+  renderExamShell();
+  renderExamQuestion();
+}
+
+function renderExamShell(){
+  document.getElementById("view-exam").innerHTML = `
+    <div class="exam-top">
+      <div class="exam-title">${esc(EX.info.title||"SAT 시험")}</div>
+      <div class="exam-timer" id="examTimer">${fmtTime(EX.remain)}</div>
+    </div>
+    <div class="exam-body" id="examBody"></div>
+    <div class="exam-bottom">
+      <div class="exam-name">${esc(EX.studentName||"")}</div>
+      <button class="exam-navbtn" id="examNavBtn" onclick="toggleExamNav()">문항 <b id="examPos"></b></button>
+      <div class="exam-move">
+        <button class="btn btn-ghost" style="width:auto;padding:9px 16px" onclick="examGo(-1)">← 이전</button>
+        <button class="btn btn-primary" style="width:auto;padding:9px 18px" id="examNext" onclick="examGo(1)">다음 →</button>
+      </div>
+    </div>
+    <div class="exam-navpop hide" id="examNavPop"></div>`;
+}
+
+function renderExamQuestion(){
+  const q=EX.qs[EX.idx]; const n=q.number||(EX.idx+1);
+  const choices=q.choices||{};
+  const hasChoices=["A","B","C","D"].some(c=>choices[c]!==undefined);
+  const isGrid=(q.format==='grid')||!hasChoices;
+  const cur=EX.answers[EX.idx]||"";
+  let answerHtml;
+  if(isGrid){
+    answerHtml = `<input class="exam-grid" type="text" placeholder="정답 입력" value="${esc(cur)}" oninput="setGridAns(this.value)" />`;
+  }else{
+    answerHtml = '<div class="exam-choices">'+["A","B","C","D"].filter(c=>choices[c]!==undefined).map(c=>
+      `<button class="exam-ch ${cur===c?'on':''}" onclick="setExamAns('${c}')"><span class="exam-ck">${c}</span><span>${esc(choices[c])}</span></button>`
+    ).join("")+'</div>';
+  }
+  document.getElementById("examBody").innerHTML = `
+    <div class="exam-qhead">
+      <span class="exam-qn">문항 ${esc(String(n))}</span>
+      ${q.skill?`<span class="pq-skill">${esc(q.skill)}</span>`:""}
+      <label class="exam-mark"><input type="checkbox" ${EX.marks[EX.idx]?'checked':''} onchange="toggleMark(this.checked)"/> 검토 표시</label>
+    </div>
+    ${q.passage&&String(q.passage).trim()?`<div class="pq-passage">${esc(q.passage)}</div>`:""}
+    <div class="exam-stem">${esc(q.stem||"")}</div>
+    ${answerHtml}`;
+  document.getElementById("examPos").textContent=(EX.idx+1)+" / "+EX.qs.length;
+  document.getElementById("examNext").textContent = (EX.idx===EX.qs.length-1)? "제출하기" : "다음 →";
+  typesetMath(document.getElementById("examBody"));
+}
+function setExamAns(v){ EX.answers[EX.idx]=v; renderExamQuestion(); }   // 객관식(재렌더로 하이라이트)
+function setGridAns(v){ EX.answers[EX.idx]=v; }                          // grid 입력(포커스 유지 위해 재렌더 안 함)
+function toggleMark(on){ EX.marks[EX.idx]=on; }
+function examGo(d){
+  if(d>0 && EX.idx===EX.qs.length-1){ confirmSubmitExam(); return; }
+  EX.idx=Math.max(0,Math.min(EX.qs.length-1,EX.idx+d));
+  document.getElementById("examNavPop").classList.add("hide"); EX.navOpen=false;
+  renderExamQuestion(); window.scrollTo(0,0);
+}
+function toggleExamNav(){
+  const pop=document.getElementById("examNavPop"); EX.navOpen=!EX.navOpen;
+  pop.classList.toggle("hide", !EX.navOpen);
+  if(EX.navOpen){
+    pop.innerHTML='<div class="exam-navgrid">'+EX.qs.map((q,i)=>{
+      const answered=EX.answers[i]!==undefined && String(EX.answers[i]).length>0;
+      const cls=(i===EX.idx?'cur ':'')+(answered?'done ':'')+(EX.marks[i]?'mark':'');
+      return `<button class="${cls}" onclick="examJump(${i})">${i+1}</button>`;
+    }).join("")+'</div><button class="btn btn-primary" style="margin-top:12px" onclick="confirmSubmitExam()">시험 제출</button>';
+  }
+}
+function examJump(i){ EX.idx=i; document.getElementById("examNavPop").classList.add("hide"); EX.navOpen=false; renderExamQuestion(); window.scrollTo(0,0); }
+
+function confirmSubmitExam(){
+  const unanswered=EX.qs.filter((q,i)=>!(EX.answers[i]!==undefined && String(EX.answers[i]).length>0)).length;
+  const msg=unanswered? ("아직 "+unanswered+"문항이 비어 있습니다. 그래도 제출할까요?") : "시험을 제출할까요?";
+  if(confirm(msg)) submitExam(false);
+}
+async function submitExam(auto){
+  if(EX.timer){ clearInterval(EX.timer); EX.timer=null; }
+  const root=document.getElementById("view-exam");
+  root.innerHTML='<div class="loading"><div class="spinner"></div>'+(auto?'시간 종료 — ':'')+'채점 중…</div>';
+  try{
+    const answers=EX.qs.map((q,i)=>EX.answers[i]!==undefined? String(EX.answers[i]):"");
+    const res=await fetch(TEST_URL,{ method:"POST", headers:{ "Content-Type":"application/json", "apikey":SUPABASE_ANON },
+      body:JSON.stringify({ action:"submit", token:EX.token, studentId:EX.studentId, answers }) });
+    const out=await res.json();
+    if(out.error) throw new Error(out.error);
+    renderExamResult(out);
+  }catch(e){
+    root.innerHTML='<div class="exam-card"><div class="err">제출에 실패했습니다.<br><span class="muted">'+esc(String(e.message||e))+'</span></div></div>';
+  }
+}
+function renderExamResult(r){
+  const pct=Math.round((r.score/Math.max(1,r.total))*100);
+  const cards=(r.review||[]).map(q=>{
+    const choices=q.choices||{};
+    const isGrid=(q.format==='grid')||!["A","B","C","D"].some(c=>choices[c]!==undefined);
+    const yourTxt=q.your||"(미응답)";
+    const chHtml=isGrid? `<div class="muted" style="font-size:13px">내 답: <b>${esc(yourTxt)}</b> · 정답: <b style="color:var(--teal)">${esc(q.answer)}</b></div>`
+      : '<ul class="pq-choices">'+["A","B","C","D"].filter(c=>choices[c]!==undefined).map(c=>{
+          const mark = c===q.answer? 'correct' : (c===q.your? 'wrong':'');
+          return `<li class="rv ${mark}"><span class="ck">${c}</span><span>${esc(choices[c])}</span></li>`;
+        }).join("")+'</ul>';
+    return `<div class="paper-q">
+      <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
+        <span class="pq-num" style="background:${q.correct?'var(--teal)':'var(--rose)'}">${esc(String(q.number))}</span>
+        <span style="font-weight:700;color:${q.correct?'var(--teal)':'var(--rose)'}">${q.correct?'정답':'오답'}</span>
+        ${q.skill?`<span class="pq-skill">${esc(q.skill)}</span>`:""}
+      </div>
+      ${q.passage&&String(q.passage).trim()?`<div class="pq-passage">${esc(q.passage)}</div>`:""}
+      <div class="pq-stem">${esc(q.stem||"")}</div>
+      ${chHtml}
+      <div class="answer-block" style="display:block">
+        <div class="ab-ans">정답: ${esc(q.answer)}</div>
+        <div class="ab-exp">${esc(q.explanation||"")}</div>
+      </div>
+    </div>`;
+  }).join("");
+  document.getElementById("view-exam").innerHTML=`
+    <div class="exam-card" style="text-align:center">
+      <div class="muted" style="font-size:13px">${esc(r.studentName||"")} 학생 · 채점 완료</div>
+      <div style="font-size:44px;font-weight:800;color:var(--ink);margin:8px 0 2px">${r.score} <span style="font-size:24px;color:var(--mut)">/ ${r.total}</span></div>
+      <div class="muted">정답률 ${pct}%</div>
+    </div>
+    <div class="exam-card">
+      <div class="h3" style="margin:0 0 14px">정답 · 해설</div>
+      ${cards}
+    </div>
+    <div class="exam-card" style="text-align:center">
+      <div class="muted" style="font-size:13px">결과는 선생님께 자동으로 전달되었습니다. INTO유학센터</div>
+    </div>`;
+  typesetMath(document.getElementById("view-exam"));
+}
+
+// 시작 — 시험 링크면 응시 모드, 아니면 일반 앱
+const _examToken = new URLSearchParams(location.search).get("test");
+if(_examToken && configured){
+  document.body.classList.add("exam-mode");
+  document.getElementById("view-exam").classList.remove("hide");
+  startExam(_examToken);
+}else if(configured){
+  initAuth();
+}
 </script>
 </body>
 </html>
