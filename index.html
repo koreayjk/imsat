@@ -1855,7 +1855,7 @@ async function runGeneration(opts, btn){
     const avoidText = avoid.length ? avoid.slice(-60).join("\n- ") : "";
     const prompt=buildGenPrompt(secLabel, topicStr, bn, diffLabel, vnote, weakNote, avoidText);
     const res=await fetch(ANALYZE_URL,{ method:"POST", headers:await fnHeaders(),
-      body:JSON.stringify({ max_tokens:Math.min(8000, 1100*bn+1200),
+      body:JSON.stringify({ task:"generate", max_tokens:Math.min(8000, 1100*bn+1200),
         messages:[{ role:"user", content:[{ type:"text", text:prompt }] }] }) });
     const out=await res.json();
     if(out.error) throw new Error(out.error);

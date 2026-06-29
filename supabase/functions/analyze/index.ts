@@ -1,63 +1,76 @@
 // =====================================================================
-//  Supabase Edge Function: analyze
-//  - 모드 1 (패스스루): { max_tokens, messages } → Anthropic 호출 → { text }
-//      · OMR/정답지 OCR, 문제집 추출, SAT 문제 출제에 사용
-//  - 모드 2 (오답 진단): { diagnosticId, studentName, secLabel, exam, score, questions }
-//      · 백그라운드로 분석 → imsat.diagnostics 업데이트 + imsat.diagnostic_questions 삽입
+//  Supabase Edge Function: analyze (하이브리드)
+//   - 문제 출제(task:"generate", 텍스트만)        → Google Gemini
+//   - 스캔/OCR(이미지 포함) + 오답 진단(diagnosticId) → Anthropic Claude
 //
-//  배포 전 필요한 시크릿: ANTHROPIC_API_KEY
-//  (SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY 는 런타임에 자동 주입됨)
+//  필요한 시크릿:
+//    ANTHROPIC_API_KEY  (스캔·진단용)
+//    GEMINI_API_KEY     (문제 출제용)
+//  (SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY 는 런타임 자동 주입)
 // =====================================================================
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
 const ANTHROPIC_API_KEY = Deno.env.get("ANTHROPIC_API_KEY")!;
-const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
-const SERVICE_ROLE = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
+const GEMINI_API_KEY    = Deno.env.get("GEMINI_API_KEY")!;
+const SUPABASE_URL  = Deno.env.get("SUPABASE_URL")!;
+const SERVICE_ROLE  = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
 
-// 비전(이미지) + 텍스트를 모두 지원하는 모델. 계정에 따라 교체하세요.
-//  · 권장(품질·속도 균형): claude-sonnet-4-6
-//  · 최고 품질: claude-opus-4-8   · 저렴·빠름: claude-haiku-4-5-20251001
-const MODEL = "claude-sonnet-4-6";
+// 스캔(이미지)·진단용 Claude — 비전 지원 모델
+const CLAUDE_MODEL = "claude-sonnet-4-6";
+// 문제 출제용 Gemini — 품질: gemini-2.5-pro / 저렴·빠름: gemini-2.5-flash
+const GEMINI_MODEL = "gemini-2.5-flash";
 
 const cors = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
   "Access-Control-Allow-Methods": "POST, OPTIONS",
 };
-function json(body: unknown, status = 200) {
-  return new Response(JSON.stringify(body), {
-    status,
-    headers: { ...cors, "Content-Type": "application/json" },
-  });
+function json(body, status = 200) {
+  return new Response(JSON.stringify(body), { status, headers: { ...cors, "Content-Type": "application/json" } });
 }
 
-async function callAnthropic(
-  { system, messages, max_tokens }:
-  { system?: string; messages: unknown[]; max_tokens?: number },
-): Promise<string> {
+// ---- Anthropic (스캔/진단) ----
+async function callAnthropic({ system, messages, max_tokens }) {
   const res = await fetch("https://api.anthropic.com/v1/messages", {
     method: "POST",
-    headers: {
-      "x-api-key": ANTHROPIC_API_KEY,
-      "anthropic-version": "2023-06-01",
-      "content-type": "application/json",
-    },
-    body: JSON.stringify({
-      model: MODEL,
-      max_tokens: max_tokens || 4000,
-      ...(system ? { system } : {}),
-      messages,
-    }),
+    headers: { "x-api-key": ANTHROPIC_API_KEY, "anthropic-version": "2023-06-01", "content-type": "application/json" },
+    body: JSON.stringify({ model: CLAUDE_MODEL, max_tokens: max_tokens || 4000, ...(system ? { system } : {}), messages }),
   });
   const data = await res.json();
   if (!res.ok) throw new Error(data?.error?.message || ("Anthropic " + res.status));
-  return (data.content || [])
-    .filter((b: any) => b.type === "text")
-    .map((b: any) => b.text)
-    .join("");
+  return (data.content || []).filter((b) => b.type === "text").map((b) => b.text).join("");
 }
 
-function parseJSON(raw: string) {
+// ---- Gemini (문제 출제) ----  Anthropic식 messages(텍스트) → Gemini contents
+async function callGemini(messages, max_tokens) {
+  const contents = (messages || []).map((m) => ({
+    role: m.role === "assistant" ? "model" : "user",
+    parts: [{
+      text: typeof m.content === "string"
+        ? m.content
+        : (m.content || []).filter((c) => c.type === "text").map((c) => c.text).join("\n"),
+    }],
+  }));
+  const url = `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:generateContent?key=${GEMINI_API_KEY}`;
+  const res = await fetch(url, {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({
+      contents,
+      generationConfig: {
+        maxOutputTokens: Math.min(8192, max_tokens || 8000),
+        temperature: 0.9,
+        responseMimeType: "application/json",
+      },
+    }),
+  });
+  const data = await res.json();
+  if (!res.ok) throw new Error(data?.error?.message || ("Gemini " + res.status));
+  const parts = data?.candidates?.[0]?.content?.parts || [];
+  return parts.map((p) => p.text || "").join("");
+}
+
+function parseJSON(raw) {
   let t = String(raw || "").replace(/```json|```/g, "").trim();
   const s = t.indexOf("{"), e = t.lastIndexOf("}");
   if (s >= 0 && e > s) t = t.slice(s, e + 1);
@@ -65,7 +78,7 @@ function parseJSON(raw: string) {
 }
 
 // ---- 진단 프롬프트 (클라이언트와 동일) ----
-function buildSystemPrompt(secLabel: string) {
+function buildSystemPrompt(secLabel) {
   return `당신은 미국 대학입시 SAT 전문 강사이자 오답 진단 전문가입니다. 한국 학생을 가르치는 학원 선생님이 수업 준비에 쓸 진단 리포트를 작성합니다. 모든 출력은 한국어로 작성합니다.
 
 분석 대상 영역: ${secLabel}
@@ -85,51 +98,29 @@ function buildSystemPrompt(secLabel: string) {
 반드시 아래 JSON 형식으로만 응답(백틱·설명 없이 순수 JSON):
 {"perQuestion":[{"number":"","studentAnswer":"","correctAnswer":"","whyChose":"","trapIntent":"","correctLogic":"","errorType":""}],"weaknessSummary":"","errorTypeCounts":{},"prescription":[],"teacherNotes":""}`;
 }
-function buildUserMsg(
-  name: string, exam: string, secLabel: string, score: string,
-  valid: Array<{ number: string; student: string; correct: string; content: string }>,
-) {
+function buildUserMsg(name, exam, secLabel, score, valid) {
   return `학생: ${name}\n시험: ${exam || "(미입력)"}\n영역: ${secLabel}\n${score ? ("점수/맞은 개수: " + score + "\n") : ""}\n아래는 학생이 틀린 문항들입니다.\n\n` +
-    valid.map((q) =>
-      `[문항 ${q.number}] 학생이 고른 답: ${q.student} / 정답: ${q.correct}\n문제 내용:\n${q.content}`
-    ).join("\n\n---\n\n");
+    valid.map((q) => `[문항 ${q.number}] 학생이 고른 답: ${q.student} / 정답: ${q.correct}\n문제 내용:\n${q.content}`).join("\n\n---\n\n");
 }
 
-Deno.serve(async (req: Request) => {
+Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: cors });
   try {
     const body = await req.json();
 
-    // ---- 모드 1: 패스스루 (OCR / 문제 출제) ----
-    if (Array.isArray(body.messages)) {
-      const text = await callAnthropic({
-        messages: body.messages,
-        max_tokens: body.max_tokens,
-      });
-      return json({ text });
-    }
-
-    // ---- 모드 2: 오답 진단 (백그라운드) ----
+    // ---- 오답 진단 (백그라운드) → Claude ----
     if (body.diagnosticId && Array.isArray(body.questions)) {
-      const sb = createClient(SUPABASE_URL, SERVICE_ROLE, {
-        db: { schema: "imsat" },
-        auth: { persistSession: false },
-      });
+      const sb = createClient(SUPABASE_URL, SERVICE_ROLE, { db: { schema: "imsat" }, auth: { persistSession: false } });
       const { diagnosticId, studentName, secLabel, exam, score, questions } = body;
 
       const work = (async () => {
         try {
-          const { data: drow } = await sb.from("diagnostics")
-            .select("teacher_id").eq("id", diagnosticId).single();
+          const { data: drow } = await sb.from("diagnostics").select("teacher_id").eq("id", diagnosticId).single();
           const teacherId = drow?.teacher_id ?? null;
 
           const system = buildSystemPrompt(secLabel);
           const user = buildUserMsg(studentName, exam, secLabel, score, questions);
-          const text = await callAnthropic({
-            system,
-            messages: [{ role: "user", content: user }],
-            max_tokens: 4000,
-          });
+          const text = await callAnthropic({ system, messages: [{ role: "user", content: user }], max_tokens: 4000 });
           const out = parseJSON(text);
 
           await sb.from("diagnostics").update({
@@ -140,7 +131,7 @@ Deno.serve(async (req: Request) => {
             status: "done",
           }).eq("id", diagnosticId);
 
-          const rows = (out.perQuestion || []).map((q: any) => ({
+          const rows = (out.perQuestion || []).map((q) => ({
             diagnostic_id: diagnosticId,
             teacher_id: teacherId,
             number: String(q.number ?? ""),
@@ -153,26 +144,32 @@ Deno.serve(async (req: Request) => {
           }));
           if (rows.length) await sb.from("diagnostic_questions").insert(rows);
         } catch (err) {
-          await sb.from("diagnostics").update({
-            status: "error",
-            error_msg: String((err as any)?.message || err),
-          }).eq("id", diagnosticId);
+          await sb.from("diagnostics").update({ status: "error", error_msg: String(err?.message || err) }).eq("id", diagnosticId);
         }
       })();
 
-      // 즉시 202 응답, 분석은 백그라운드로 계속
-      // @ts-ignore EdgeRuntime 은 Supabase Edge 런타임 전역
-      if (typeof EdgeRuntime !== "undefined" && EdgeRuntime.waitUntil) {
-        // @ts-ignore
-        EdgeRuntime.waitUntil(work);
-      } else {
-        await work;
-      }
+      if (typeof EdgeRuntime !== "undefined" && EdgeRuntime.waitUntil) EdgeRuntime.waitUntil(work);
+      else await work;
       return json({ status: "processing" }, 202);
+    }
+
+    // ---- 패스스루 ----
+    if (Array.isArray(body.messages)) {
+      const hasImage = body.messages.some((m) =>
+        Array.isArray(m.content) && m.content.some((c) => c.type === "image"));
+
+      // 문제 출제(텍스트만) → Gemini
+      if (body.task === "generate" && !hasImage) {
+        const text = await callGemini(body.messages, body.max_tokens);
+        return json({ text });
+      }
+      // 스캔/OCR(이미지) 등 → Claude
+      const text = await callAnthropic({ messages: body.messages, max_tokens: body.max_tokens });
+      return json({ text });
     }
 
     return json({ error: "알 수 없는 요청 형식입니다." }, 400);
   } catch (e) {
-    return json({ error: String((e as any)?.message || e) }, 500);
+    return json({ error: String(e?.message || e) }, 500);
   }
 });
