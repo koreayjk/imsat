@@ -350,7 +350,11 @@
   /* ============ 학생 시험 응시 모드 ============ */
   body.exam-mode{padding-left:0 !important;background:#f1f5f9}
   body.exam-mode #sidebar, body.exam-mode #sbToggleOpen, body.exam-mode header.top, body.exam-mode #configWarn{display:none!important}
-  body.exam-mode .wrap{max-width:860px;padding-top:18px}
+  body.exam-mode .wrap{max-width:none;padding:0;margin:0}
+  /* 시험화면은 풀스크린 fixed 레이아웃 → transform 컨테이닝 블록 방지 위해 애니메이션 제거 */
+  body.exam-mode #view-exam{animation:none!important}
+  /* 인트로/결과 카드만 가운데 정렬 */
+  body.exam-mode .exam-card{max-width:720px;margin:18px auto}
   .exam-card{background:#fff;border:1px solid var(--line);border-radius:14px;padding:24px;margin-bottom:16px;
     box-shadow:0 10px 30px -20px rgba(15,23,42,.3)}
   .exam-top{position:sticky;top:0;z-index:20;display:flex;align-items:center;justify-content:space-between;
