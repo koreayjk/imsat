@@ -818,7 +818,12 @@
       <label class="fld" style="margin-top:14px">세부 유형 <span class="muted">(복수 선택 · 미선택 시 영역 전반)</span></label>
       <div class="gen-topics" id="genTopicsBox"></div>
 
-      <div class="grid2" style="margin-top:14px">
+      <label style="display:flex;align-items:center;gap:9px;margin-top:16px;padding:12px 14px;border:1px solid #fed7aa;border-radius:11px;background:var(--amber-bg);cursor:pointer">
+        <input type="checkbox" id="genAdaptive" onchange="onAdaptiveToggle()" style="width:auto;margin:0" />
+        <span style="font-size:13px"><b style="color:#b45309">적응형 2모듈 시험(실전형)</b> — 모듈1을 풀면 점수에 따라 모듈2가 쉬움/어려움으로 자동 배정됩니다. <span class="muted" id="genAdaptiveNote"></span></span>
+      </label>
+
+      <div class="grid2" style="margin-top:14px" id="genDiffCountRow">
         <div>
           <label class="fld">난이도</label>
           <div class="seg" id="genDiffSeg">
@@ -1862,6 +1867,16 @@ function updateGenCountHint(){
   el.textContent = (genSection==='math')
     ? "실전 Math: 한 모듈 22문항 · 풀 세트 44문항"
     : "실전 R&W: 한 모듈 27문항 · 풀 세트 54문항";
+  const n=document.getElementById("genAdaptiveNote");
+  if(n) n.textContent = (genSection==='math') ? "(Math: 모듈당 22문항)" : "(R&W: 모듈당 27문항)";
+}
+function isAdaptiveOn(){ const c=document.getElementById("genAdaptive"); return !!(c&&c.checked); }
+function onAdaptiveToggle(){
+  const on=isAdaptiveOn();
+  const row=document.getElementById("genDiffCountRow");
+  if(row) row.style.opacity=on?".45":"1";
+  if(row) row.style.pointerEvents=on?"none":"auto";
+  updateGenCountHint();
 }
 document.querySelectorAll("#genDiffSeg button").forEach(b=>b.addEventListener("click",()=>{
   genDifficulty=b.dataset.d;
@@ -1907,7 +1922,8 @@ function showGenerate(student=null, weakTypes=[], section="rw"){
       +'<div class="muted" style="font-size:13px">진단에서 누적된 약점: <b>'+esc(genWeakNote)+'</b><br>이 유형을 겨냥한 문제로 출제합니다. 아래에서 유형·난이도를 더 조절할 수 있어요.</div></div>';
   } else { wbox.innerHTML=""; }
   renderGenTopics();
-  updateGenCountHint();
+  const ad=document.getElementById("genAdaptive"); if(ad) ad.checked=false;
+  onAdaptiveToggle();
   show("generate");
 }
 function genBack(){ if(genStudent) openStudent(genStudent); else showDashboard(); }
@@ -2064,6 +2080,7 @@ async function nextSeq(section){
 }
 
 async function generateProblems(){
+  if(isAdaptiveOn()){ return generateAdaptive(); }
   const errBox=document.getElementById("genErr"); errBox.innerHTML="";
   if(!configured){ errBox.innerHTML='<div class="err">Supabase 설정을 먼저 완료하세요.</div>'; return; }
   let count=parseInt(document.getElementById("genCount").value,10);
@@ -2082,6 +2099,48 @@ async function generateProblems(){
     show("paper");
   }catch(e){
     errBox.innerHTML='<div class="err">생성에 실패했습니다.<br><span class="muted">'+esc(String(e.message||e))+'</span></div>';
+  }finally{
+    btn.disabled=false; btn.textContent="문제 생성 → 시험지 만들기";
+  }
+}
+
+// 적응형 2모듈 출제 (모듈1 중간난이도 + 모듈2 쉬움/어려움)
+async function generateAdaptive(){
+  const errBox=document.getElementById("genErr"); errBox.innerHTML="";
+  if(!configured){ errBox.innerHTML='<div class="err">Supabase 설정을 먼저 완료하세요.</div>'; return; }
+  const moduleN = genSection==='math' ? 22 : 27;
+  const note=document.getElementById("genNote").value.trim();
+  const secLabel=SECTION_LABEL[genSection];
+  const btn=document.getElementById("genBtn"); btn.disabled=true;
+  try{
+    const seq = await nextSeq(genSection);
+    let avoid = await fetchAvoidStems(genSection);
+    const setLabel=(s)=>{ btn.textContent=s; };
+    setLabel("모듈 1 생성 중… (1/3)");
+    const m1 = await runGeneration({ section:genSection, topics:genTopics, difficulty:'mixed', count:moduleN, note, weakNote:genWeakNote, student:genStudent, variation:false, avoidStems:avoid }, btn);
+    avoid = avoid.concat(m1.questions.map(q=>String(q.stem||"").slice(0,70)));
+    setLabel("모듈 2 (쉬움) 생성 중… (2/3)");
+    const m2e = await runGeneration({ section:genSection, topics:genTopics, difficulty:'easy', count:moduleN, note, weakNote:genWeakNote, student:genStudent, variation:false, avoidStems:avoid }, btn);
+    avoid = avoid.concat(m2e.questions.map(q=>String(q.stem||"").slice(0,70)));
+    setLabel("모듈 2 (어려움) 생성 중… (3/3)");
+    const m2h = await runGeneration({ section:genSection, topics:genTopics, difficulty:'hard', count:moduleN, note, weakNote:genWeakNote, student:genStudent, variation:false, avoidStems:avoid }, btn);
+
+    const renum=(arr,base)=>arr.map((q,i)=>({ ...q, number:base+i+1 }));
+    const modules={ m1:renum(m1.questions,0), m2e:renum(m2e.questions,0), m2h:renum(m2h.questions,0) };
+    currentPaper={
+      title: (secLabel+" 적응형 모의고사")+(seq?(" · #"+seq):""),
+      section: genSection, difficulty:'mixed', topics:genTopics,
+      adaptive:true, modules,
+      questions: [...modules.m1, ...modules.m2e, ...modules.m2h],
+      studentName: genStudent? genStudent.name : null, savedId:null
+    };
+    paperSaveWarn="";
+    try{ await savePaper(); }catch(se){ paperSaveWarn=String(se.message||se); }
+    paperReturn = genStudent ? (st=>()=>openStudent(st))(genStudent) : showDashboard;
+    renderPaper();
+    show("paper");
+  }catch(e){
+    errBox.innerHTML='<div class="err">적응형 생성에 실패했습니다.<br><span class="muted">'+esc(String(e.message||e))+'</span></div>';
   }finally{
     btn.disabled=false; btn.textContent="문제 생성 → 시험지 만들기";
   }
@@ -2109,7 +2168,8 @@ async function savePaper(){
   const { data, error } = await sb.from("problem_sets").insert({
     student_id: genStudent? genStudent.id : null,
     title: p.title, section: p.section, difficulty: p.difficulty,
-    topics: p.topics, questions: p.questions
+    topics: p.topics, questions: p.questions,
+    adaptive: !!p.adaptive, modules: p.modules||null
   }).select().single();
   if(error) throw new Error(error.message);
   p.savedId=data.id;
@@ -2262,6 +2322,7 @@ async function openProblemSet(id, origin){
   if(error || !data){ document.getElementById("view-paper").innerHTML='<div class="err">시험지를 불러오지 못했습니다.</div>'; return; }
   currentPaper={ title:data.title, section:data.section, difficulty:data.difficulty,
     topics:data.topics||[], questions:data.questions||[], shareToken:data.share_token||null,
+    adaptive:!!data.adaptive, modules:data.modules||null,
     studentName:(origin==='student'&&currentStudent)?currentStudent.name:null, savedId:data.id };
   paperSaveWarn="";
   if(origin==='student' && currentStudent){ const st=currentStudent; genStudent=st; genWeakNote=""; paperReturn=()=>openStudent(st); }
@@ -2485,12 +2546,54 @@ function beginExam(){
   const sid=sel && sel.value;
   if(!sid){ document.getElementById("examIntroErr").innerHTML='<div class="err" style="margin-top:10px">이름을 선택하세요.</div>'; return; }
   EX.studentId=sid; EX.studentName=sel.options[sel.selectedIndex].text;
-  EX.answers={}; EX.marks={}; EX.elim={}; EX.idx=0;
-  EX.elimMode=false; EX.timerHidden=false; EX.calcOpen=false;
-  EX.remain=EX.info.timeLimitSec;
+  EX.adaptive=!!EX.info.adaptive; EX.module=1; EX.m1AnswersArr=null; EX.route=null;
+  EX.timerHidden=false; EX.calcOpen=false;
+  resetModuleState();
+  startModuleTimer( EX.adaptive ? EX.info.moduleTimeSec : EX.info.timeLimitSec );
+  renderExamShell();
+  renderExamQuestion();
+}
+function resetModuleState(){ EX.answers={}; EX.marks={}; EX.elim={}; EX.idx=0; EX.elimMode=false; }
+function collectAnswers(){ return EX.qs.map((q,i)=>EX.answers[i]!==undefined?String(EX.answers[i]):""); }
+function startModuleTimer(sec){
+  if(EX.timer){ clearInterval(EX.timer); }
+  EX.remain=sec;
   EX.timer=setInterval(()=>{ EX.remain--; const t=document.getElementById("examTimer");
     if(t) t.textContent=fmtTime(Math.max(0,EX.remain));
-    if(EX.remain<=0){ clearInterval(EX.timer); submitExam(true); } }, 1000);
+    if(EX.remain<=0){ clearInterval(EX.timer); EX.timer=null; onExamTimeUp(); } }, 1000);
+}
+function onExamTimeUp(){ if(EX.adaptive && EX.module===1) finishModule1(true); else submitExam(true); }
+function examEndAction(){ if(EX.adaptive && EX.module===1) confirmFinishModule1(); else confirmSubmitExam(); }
+function confirmFinishModule1(){
+  const un=EX.qs.filter((q,i)=>!(EX.answers[i]!==undefined && String(EX.answers[i]).length>0)).length;
+  const msg=(un?("아직 "+un+"문항이 비어 있습니다. "):"")+"모듈 1을 제출하고 모듈 2로 넘어갈까요? 모듈 1로는 돌아올 수 없습니다.";
+  if(confirm(msg)) finishModule1(false);
+}
+async function finishModule1(auto){
+  if(EX.timer){ clearInterval(EX.timer); EX.timer=null; }
+  EX.m1AnswersArr=collectAnswers();
+  const root=document.getElementById("view-exam");
+  root.innerHTML='<div class="loading"><div class="spinner"></div>'+(auto?'시간 종료 — ':'')+'모듈 1 채점 중…</div>';
+  try{
+    const res=await fetch(TEST_URL,{ method:"POST", headers:{ "Content-Type":"application/json", "apikey":SUPABASE_ANON, "Authorization":"Bearer "+SUPABASE_ANON },
+      body:JSON.stringify({ action:"module2", token:EX.token, studentId:EX.studentId, m1Answers:EX.m1AnswersArr }) });
+    const out=await res.json(); if(out.error) throw new Error(out.error);
+    EX.route=out.route; EX.m2qs=out.questions||[]; EX.moduleTimeSec=out.moduleTimeSec;
+    showModuleBreak();
+  }catch(e){ root.innerHTML='<div class="exam-card"><div class="err">모듈 전환 실패<br><span class="muted">'+esc(String(e.message||e))+'</span></div></div>'; }
+}
+function showModuleBreak(){
+  document.getElementById("view-exam").innerHTML=`
+    <div class="exam-card" style="text-align:center;margin-top:60px">
+      <div class="ey" style="color:var(--amber);font-size:11px;letter-spacing:.16em;text-transform:uppercase;margin-bottom:6px">Module 1 Complete</div>
+      <h2 style="margin:0 0 8px;font-size:22px;color:var(--ink)">모듈 1을 마쳤습니다 ✅</h2>
+      <p class="muted" style="margin:0 0 20px">곧 모듈 2가 시작됩니다. <b>${EX.m2qs.length}문항 · ${Math.round(EX.moduleTimeSec/60)}분</b><br>준비되면 아래 버튼을 누르세요.</p>
+      <button class="btn btn-primary" style="max-width:260px;margin:0 auto" onclick="startModule2()">모듈 2 시작</button>
+    </div>`;
+}
+function startModule2(){
+  EX.module=2; EX.qs=EX.m2qs; resetModuleState();
+  startModuleTimer(EX.moduleTimeSec);
   renderExamShell();
   renderExamQuestion();
 }
@@ -2501,7 +2604,7 @@ function renderExamShell(){
     <div class="bb-top">
       <div class="bb-left">
         <div class="bb-section">${esc(EX.info.title||"IMSAT 모의고사")}</div>
-        <div class="bb-sub">${esc(EX.info.secLabel||"")}</div>
+        <div class="bb-sub">${esc(EX.info.secLabel||"")}${EX.adaptive?(" · Module "+EX.module):""}</div>
       </div>
       <div class="bb-center">
         <div class="bb-timer" id="examTimer">${fmtTime(EX.remain)}</div>
@@ -2582,7 +2685,8 @@ function renderExamQuestion(){
     main.innerHTML = `<div class="bb-pane bb-q-pane bb-q-center">${qbody}</div>`;
   }
   document.getElementById("examPos").textContent=(EX.idx+1)+" of "+EX.qs.length;
-  const nx=document.getElementById("examNext"); if(nx) nx.textContent=(EX.idx===EX.qs.length-1)?"제출":"Next";
+  const nx=document.getElementById("examNext");
+  if(nx) nx.textContent=(EX.idx===EX.qs.length-1)?((EX.adaptive&&EX.module===1)?"모듈 2로":"제출"):"Next";
   typesetMath(main);
 }
 function setExamAns(v){ EX.answers[EX.idx]=v; renderExamQuestion(); }
@@ -2630,7 +2734,7 @@ function referenceHTML(){
   return '<div class="bb-ref-grid">'+items.map(([f,l])=>`<div class="bb-ref-item"><div class="f">${f}</div><div class="l">${esc(l)}</div></div>`).join("")+'</div>';
 }
 function examGo(d){
-  if(d>0 && EX.idx===EX.qs.length-1){ confirmSubmitExam(); return; }
+  if(d>0 && EX.idx===EX.qs.length-1){ examEndAction(); return; }
   EX.idx=Math.max(0,Math.min(EX.qs.length-1,EX.idx+d));
   document.getElementById("examNavPop").classList.add("hide"); EX.navOpen=false;
   renderExamQuestion(); window.scrollTo(0,0);
@@ -2643,7 +2747,7 @@ function toggleExamNav(){
       const answered=EX.answers[i]!==undefined && String(EX.answers[i]).length>0;
       const cls=(i===EX.idx?'cur ':'')+(answered?'done ':'')+(EX.marks[i]?'mark':'');
       return `<button class="${cls}" onclick="examJump(${i})">${i+1}</button>`;
-    }).join("")+'</div><button class="btn btn-primary" style="margin-top:12px" onclick="confirmSubmitExam()">시험 제출</button>';
+    }).join("")+'</div><button class="btn btn-primary" style="margin-top:12px" onclick="'+(EX.adaptive&&EX.module===1?'confirmFinishModule1':'confirmSubmitExam')+'()">'+(EX.adaptive&&EX.module===1?'모듈 1 제출':'시험 제출')+'</button>';
   }
 }
 function examJump(i){ EX.idx=i; document.getElementById("examNavPop").classList.add("hide"); EX.navOpen=false; renderExamQuestion(); window.scrollTo(0,0); }
@@ -2658,9 +2762,11 @@ async function submitExam(auto){
   const root=document.getElementById("view-exam");
   root.innerHTML='<div class="loading"><div class="spinner"></div>'+(auto?'시간 종료 — ':'')+'채점 중…</div>';
   try{
-    const answers=EX.qs.map((q,i)=>EX.answers[i]!==undefined? String(EX.answers[i]):"");
+    const body = EX.adaptive
+      ? { action:"submit", token:EX.token, studentId:EX.studentId, m1Answers:EX.m1AnswersArr||[], m2Answers:collectAnswers() }
+      : { action:"submit", token:EX.token, studentId:EX.studentId, answers:collectAnswers() };
     const res=await fetch(TEST_URL,{ method:"POST", headers:{ "Content-Type":"application/json", "apikey":SUPABASE_ANON, "Authorization":"Bearer "+SUPABASE_ANON },
-      body:JSON.stringify({ action:"submit", token:EX.token, studentId:EX.studentId, answers }) });
+      body:JSON.stringify(body) });
     const out=await res.json();
     if(out.error) throw new Error(out.error);
     renderExamResult(out);
@@ -2698,7 +2804,8 @@ function renderExamResult(r){
     <div class="exam-card" style="text-align:center">
       <div class="muted" style="font-size:13px">${esc(r.studentName||"")} 학생 · 채점 완료</div>
       <div style="font-size:44px;font-weight:800;color:var(--ink);margin:8px 0 2px">${r.score} <span style="font-size:24px;color:var(--mut)">/ ${r.total}</span></div>
-      <div class="muted">정답률 ${pct}%</div>
+      <div class="muted">정답률 ${pct}%${r.route?(" · 모듈2 "+(r.route==='hard'?'상위(어려움)':'하위(쉬움)')):""}</div>
+      ${r.scaled?`<div style="margin-top:10px;font-weight:800;color:var(--teal)">≈ ${r.scaled}점 <span class="muted" style="font-weight:400;font-size:11px">(근사 환산점수, 참고용)</span></div>`:""}
     </div>
     <div class="exam-card">
       <div class="h3" style="margin:0 0 14px">정답 · 해설</div>
