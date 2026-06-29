@@ -118,7 +118,8 @@ Deno.serve(async (req) => {
 
     // ---- 시험 정보 + 학생 목록 (정답 제외) ----
     if (body.action === "info") {
-      const { data: studs } = await sb.from("students").select("id,name").eq("teacher_id", ps.teacher_id).order("name");
+      const { data: studs, error: sErr } = await sb.from("students").select("id,name").eq("teacher_id", ps.teacher_id).order("name");
+      if (sErr) return json({ error: "학생 목록 조회 실패: " + sErr.message }, 500);
       const qOut = questions.map((q, i) => ({
         number: q.number || (i + 1), skill: q.skill || "", format: q.format || "mc",
         passage: q.passage || "", stem: q.stem || "", choices: q.choices || {},

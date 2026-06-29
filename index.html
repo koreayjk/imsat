@@ -554,6 +554,7 @@
     <div class="btn-row no-print" style="margin-bottom:16px">
       <button class="btn btn-ghost" onclick="genFromStudent()">📝 약점 기반 출제</button>
       <button class="btn btn-ghost" onclick="showMistakes()">📕 오답노트 PDF</button>
+      <button class="btn btn-ghost" style="color:var(--rose)" onclick="deleteStudent(currentStudent.id, currentStudent.name)">🗑 학생 삭제</button>
     </div>
 
     <div id="signalBox"></div>
@@ -1023,6 +1024,23 @@ async function openStudent(s){
   highlightSidebarStudent(s.id);
   await loadHistory();
   loadStudentSets();
+}
+
+// 학생 삭제 (관련 진단·기록도 정리)
+async function deleteStudent(id, name){
+  if(!confirm('"'+name+'" 학생을 삭제할까요?\n이 학생의 진단·응시 기록도 함께 삭제됩니다. 되돌릴 수 없습니다.')) return;
+  try{
+    const { data:diags } = await sb.from("diagnostics").select("id").eq("student_id", id);
+    const ids=(diags||[]).map(d=>d.id);
+    if(ids.length){ await sb.from("diagnostic_questions").delete().in("diagnostic_id", ids); }
+    await sb.from("diagnostics").delete().eq("student_id", id);
+    try{ await sb.from("test_attempts").delete().eq("student_id", id); }catch(_e){}
+    try{ await sb.from("problem_sets").update({ student_id:null }).eq("student_id", id); }catch(_e){}
+    const { error } = await sb.from("students").delete().eq("id", id);
+    if(error) throw new Error(error.message);
+    if(currentStudent && currentStudent.id===id) currentStudent=null;
+    showDashboard();
+  }catch(e){ alert("삭제 실패: "+(e.message||e)); }
 }
 
 // ---------- 진단 기록 + 추세 ----------
