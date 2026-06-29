@@ -2095,13 +2095,37 @@ ${avoidText?("\n[중복 금지 — 매우 중요] 아래는 이미 출제된 문
 
 // JSON 안의 잘못된 백슬래시 이스케이프(\sqrt 등 LaTeX)를 \\ 로 보정
 function sanitizeJSONBackslashes(t){ return t.replace(/\\(?!["\\/bfnrtu])/g, "\\\\"); }
+// 잘린 응답 복구: questions 배열에서 끝까지 완전히 닫힌 객체만 살려 재조립
+function salvageTruncated(t){
+  const qi=t.indexOf('"questions"'); if(qi<0) return null;
+  const ab=t.indexOf("[", qi); if(ab<0) return null;
+  let depth=0, inStr=false, esc=false, lastComplete=-1;
+  for(let i=ab+1;i<t.length;i++){
+    const ch=t[i];
+    if(inStr){ if(esc){esc=false;} else if(ch==="\\"){esc=true;} else if(ch==='"'){inStr=false;} continue; }
+    if(ch==='"'){ inStr=true; continue; }
+    if(ch==="{") depth++;
+    else if(ch==="}"){ depth--; if(depth===0) lastComplete=i; }
+    else if(ch==="]" && depth===0){ lastComplete=i-1; break; }
+  }
+  if(lastComplete<0) return null;
+  const head=t.slice(0, ab+1);
+  const body=t.slice(ab+1, lastComplete+1);
+  return head + body + "]}";
+}
 function parseModelJSON(raw){
   let t=String(raw||"").replace(/```json|```/g,"").trim();
   const s=t.indexOf("{"), e=t.lastIndexOf("}");
   if(s>=0 && e>s) t=t.slice(s,e+1);
-  for(const cand of [t, sanitizeJSONBackslashes(t)]){
-    try{ return JSON.parse(cand); }catch(_e){}
+  const cands=[t, sanitizeJSONBackslashes(t)];
+  for(const fix of [salvageTruncated(t), salvageTruncated(sanitizeJSONBackslashes(t))]){
+    if(fix) cands.push(fix);
   }
+  for(const cand of cands){
+    try{ const o=JSON.parse(cand); if(o&&Array.isArray(o.questions)) return o; }catch(_e){}
+  }
+  // questions 조건 없이도 마지막 시도
+  for(const cand of cands){ try{ return JSON.parse(cand); }catch(_e){} }
   return null;
 }
 
@@ -2120,9 +2144,11 @@ function typesetMath(el){
 async function runGeneration(opts, btn){
   const { section, topics, difficulty, count, note, weakNote, student, variation, seq } = opts;
   const secLabel=SECTION_LABEL[section];
+  const isMath=/math/i.test(section)||/math/i.test(secLabel||"");
   const diffLabel=DIFF_LABEL[difficulty]||difficulty;
   const topicStr=(topics&&topics.length)? topics.join(", ") : "영역 전반";
-  const BATCH=5;
+  // 수학은 LaTeX+한국어 해설로 출력이 길어 잘리기 쉬움 → 더 작은 묶음
+  const BATCH=isMath?3:5;
   const batches=[]; let rem=count; while(rem>0){ batches.push(Math.min(BATCH,rem)); rem-=BATCH; }
   // 중복 회피용 발문 목록(이전 시험지 + 이번에 생성된 것 누적)
   let avoid = Array.isArray(opts.avoidStems) ? [...opts.avoidStems] : [];
@@ -2138,13 +2164,22 @@ async function runGeneration(opts, btn){
     const vnote=(variation?"이전에 출제한 것과 겹치지 않는 완전히 새로운 문제로 출제하세요. ":"")+(note||"");
     const avoidText = avoid.length ? avoid.slice(-60).join("\n- ") : "";
     const prompt=buildGenPrompt(secLabel, topicStr, bn, diffLabel, vnote, weakNote, avoidText);
-    const res=await fetch(ANALYZE_URL,{ method:"POST", headers:await fnHeaders(),
-      body:JSON.stringify({ task:"generate", max_tokens:Math.min(8000, 1100*bn+1200),
-        messages:[{ role:"user", content:[{ type:"text", text:prompt }] }] }) });
-    const out=await res.json();
-    if(out.error) throw new Error(out.error);
-    const data=parseModelJSON(out.text||"");
-    if(!data || !Array.isArray(data.questions)) throw new Error("응답을 해석하지 못했습니다. 잠시 후 다시 시도해 주세요.");
+    // 파싱 실패(주로 출력 잘림) 시 1회 재시도
+    let data=null, lastRaw="";
+    for(let attempt=0; attempt<2 && !data; attempt++){
+      const res=await fetch(ANALYZE_URL,{ method:"POST", headers:await fnHeaders(),
+        body:JSON.stringify({ task:"generate", max_tokens:Math.min(8000, 1100*bn+1200),
+          messages:[{ role:"user", content:[{ type:"text", text:prompt }] }] }) });
+      const out=await res.json();
+      if(out.error) throw new Error(out.error);
+      lastRaw=out.text||"";
+      const parsed=parseModelJSON(lastRaw);
+      if(parsed && Array.isArray(parsed.questions) && parsed.questions.length){ data=parsed; break; }
+    }
+    if(!data){
+      try{ console.error("[생성 파싱 실패] 원본 응답 끝부분:", String(lastRaw).slice(-400)); }catch(_e){}
+      throw new Error("응답을 해석하지 못했습니다. 잠시 후 다시 시도해 주세요. (문항 수를 줄이거나 다시 시도)");
+    }
     if(!title) title=data.title;
     all=all.concat(data.questions);
     // 이번 배치 발문을 회피 목록에 추가 → 다음 배치/시험지가 안 겹치게
