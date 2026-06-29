@@ -342,6 +342,10 @@
   .sb-search input:focus{border-color:#fbbf24;box-shadow:none;outline:none}
   .sb-search input::placeholder{color:#94a3b8}
   .sb-lbl{font-size:10px;letter-spacing:.14em;text-transform:uppercase;color:#64748b;padding:2px 10px}
+  .sb-lbl-row{display:flex;align-items:center;justify-content:space-between}
+  .sb-addstu{background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.12);color:#fbbf24;
+    font-size:11px;font-weight:700;padding:3px 9px;border-radius:7px;cursor:pointer;letter-spacing:0;font-family:inherit}
+  .sb-addstu:hover{background:rgba(251,191,36,.18)}
   .sb-students{flex:1;overflow-y:auto;display:flex;flex-direction:column;gap:2px;margin:0 -4px;padding:0 4px}
   .sb-students::-webkit-scrollbar{width:6px}
   .sb-students::-webkit-scrollbar-thumb{background:rgba(255,255,255,.12);border-radius:99px}
@@ -403,9 +407,10 @@
   <nav class="sb-nav">
     <button id="nav-dash" onclick="showDashboard()">🏠 대시보드</button>
     <button id="nav-gen" class="cta" onclick="showGenerate()">📝 문제 출제</button>
+    <button id="nav-lib" onclick="showLibrary()">📚 출제 보관함</button>
   </nav>
   <div class="sb-search"><input id="sbSearch" placeholder="🔍 학생 검색" oninput="renderSidebar()" /></div>
-  <div class="sb-lbl">학생</div>
+  <div class="sb-lbl sb-lbl-row"><span>학생</span><button class="sb-addstu" onclick="focusAddStudent()">+ 추가</button></div>
   <div class="sb-students" id="sbStudents"></div>
   <div class="sb-foot">
     <div class="sb-me" id="sbWho"></div>
@@ -716,12 +721,28 @@
 
     <div id="genErr"></div>
     <button id="genBtn" class="btn btn-primary" onclick="generateProblems()">문제 생성 → 시험지 만들기</button>
-
-    <div id="genRecentWrap" style="margin-top:24px"></div>
   </section>
 
   <!-- ============ 생성된 시험지 ============ -->
   <section id="view-paper" class="hide"></section>
+
+  <!-- ============ 출제 보관함 ============ -->
+  <section id="view-library" class="hide">
+    <div class="rpt-head" style="margin-bottom:18px">
+      <div class="ey">출제 보관함</div>
+      <h2>출제한 시험지</h2>
+      <p>지금까지 만든 시험지를 모아 봅니다. 클릭하면 열어서 다시 인쇄·PDF로 받을 수 있어요.</p>
+    </div>
+    <div style="display:flex;gap:10px;margin-bottom:12px">
+      <input id="libSearch" placeholder="🔍 제목 검색" oninput="renderLibrary()" style="flex:1" />
+      <select id="libFilter" onchange="renderLibrary()" style="width:auto;flex:0 0 auto">
+        <option value="all">전체 영역</option>
+        <option value="rw">Reading &amp; Writing</option>
+        <option value="math">Math</option>
+      </select>
+    </div>
+    <div id="libList"></div>
+  </section>
 
   <!-- ============ 오답노트 묶음 ============ -->
   <section id="view-mistakes" class="hide"></section>
@@ -759,7 +780,7 @@ let trendChartObj = null;
 let historyPollTimer = null;
 
 // ---------- 뷰 전환 ----------
-const VIEWS = ["dashboard","student","smart","form","report","generate","paper","mistakes"];
+const VIEWS = ["dashboard","student","smart","form","report","generate","paper","library","mistakes"];
 function show(view){
   VIEWS.forEach(v=>{
     document.getElementById("view-"+v).classList.toggle("hide", v!==view);
@@ -768,10 +789,15 @@ function show(view){
   window.scrollTo(0,0);
 }
 function updateNavActive(view){
-  const d=document.getElementById("nav-dash"), g=document.getElementById("nav-gen");
+  const d=document.getElementById("nav-dash"), g=document.getElementById("nav-gen"), l=document.getElementById("nav-lib");
   if(d) d.classList.toggle("on", view==="dashboard");
   if(g) g.classList.toggle("on", view==="generate");
+  if(l) l.classList.toggle("on", view==="library");
   if(view!=="student") highlightSidebarStudent(null);
+}
+function focusAddStudent(){
+  showDashboard();
+  setTimeout(()=>{ const i=document.getElementById("newStudentName"); if(i){ i.focus(); i.scrollIntoView({block:"center"}); } }, 80);
 }
 function highlightSidebarStudent(id){
   document.querySelectorAll("#sbStudents .sb-stu").forEach(el=>
@@ -1736,7 +1762,6 @@ function showGenerate(student=null, weakTypes=[], section="rw"){
   } else { wbox.innerHTML=""; }
   renderGenTopics();
   updateGenCountHint();
-  loadRecentSets();
   show("generate");
 }
 function genBack(){ if(genStudent) openStudent(genStudent); else showDashboard(); }
@@ -2031,12 +2056,26 @@ async function loadStudentSets(){
   if(!data||!data.length){ box.innerHTML='<div class="muted" style="padding:16px;text-align:center">아직 출제한 문제가 없습니다. 위 “📝 약점 기반 출제”로 시작하세요.</div>'; return; }
   box.innerHTML=data.map(s=>setRow(s,'student')).join("");
 }
-async function loadRecentSets(){
-  const wrap=document.getElementById("genRecentWrap"); if(!wrap) return;
+// ---------- 출제 보관함 (전용 메뉴) ----------
+let allSets = [];
+async function showLibrary(){
+  show("library");
+  const list=document.getElementById("libList");
+  list.innerHTML='<div class="loading"><div class="spinner"></div>불러오는 중…</div>';
   const { data, error } = await sb.from("problem_sets")
-    .select("id,title,section,difficulty,created_at").order("created_at",{ascending:false}).limit(8);
-  if(error || !data || !data.length){ wrap.innerHTML=""; return; }
-  wrap.innerHTML='<div class="h3" style="margin:0 2px 10px">최근 출제 보관함</div>'+data.map(s=>setRow(s,'generate')).join("");
+    .select("id,title,section,difficulty,created_at,student_id").order("created_at",{ascending:false});
+  if(error){ list.innerHTML='<div class="err">보관함을 불러올 수 없습니다: '+esc(error.message)+'</div>'; return; }
+  allSets = data||[];
+  renderLibrary();
+}
+function renderLibrary(){
+  const list=document.getElementById("libList"); if(!list) return;
+  const q=(document.getElementById("libSearch")?.value||"").trim().toLowerCase();
+  const f=document.getElementById("libFilter")?.value||"all";
+  if(!allSets.length){ list.innerHTML='<div class="muted" style="padding:30px;text-align:center">아직 출제한 시험지가 없습니다. 📝 문제 출제에서 만들어 보세요.</div>'; return; }
+  const arr=allSets.filter(s=> (f==="all"||s.section===f) && (!q || (s.title||"").toLowerCase().includes(q)));
+  if(!arr.length){ list.innerHTML='<div class="muted" style="padding:30px;text-align:center">검색 결과가 없습니다.</div>'; return; }
+  list.innerHTML=arr.map(s=>setRow(s,'library')).join("");
 }
 async function openProblemSet(id, origin){
   show("paper");
@@ -2048,14 +2087,21 @@ async function openProblemSet(id, origin){
     studentName:(origin==='student'&&currentStudent)?currentStudent.name:null, savedId:data.id };
   paperSaveWarn="";
   if(origin==='student' && currentStudent){ const st=currentStudent; genStudent=st; genWeakNote=""; paperReturn=()=>openStudent(st); }
-  else { genStudent=null; if(origin==='generate') paperReturn=()=>show("generate"); else paperReturn=showDashboard; }
+  else {
+    genStudent=null;
+    if(origin==='library') paperReturn=()=>showLibrary();
+    else if(origin==='generate') paperReturn=()=>show("generate");
+    else paperReturn=showDashboard;
+  }
   renderPaper();
 }
 async function deleteProblemSet(id){
   if(!confirm("이 시험지를 삭제할까요? 되돌릴 수 없습니다.")) return;
   const { error } = await sb.from("problem_sets").delete().eq("id",id);
   if(error){ alert("삭제 실패: "+error.message); return; }
-  loadStudentSets(); loadRecentSets();
+  allSets = allSets.filter(x=>x.id!==id);
+  renderLibrary();
+  if(currentStudent) loadStudentSets();
 }
 
 // 시험지 문항 → 진단용 문제 내용 텍스트(지문+질문+선택지)
