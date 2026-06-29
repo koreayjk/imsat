@@ -2049,9 +2049,12 @@ async function runGeneration(opts, btn){
   let all=[], title=null;
   for(let bi=0; bi<batches.length; bi++){
     const bn=batches[bi];
-    if(btn) btn.textContent = batches.length>1
-      ? ("문제 생성 중… "+(bi+1)+"/"+batches.length+" 묶음")
-      : ("문제 생성 중… ("+bn+"문항 · 20~50초)");
+    if(btn){
+      const phase = opts.phaseLabel ? (opts.phaseLabel+" · ") : "";
+      btn.textContent = batches.length>1
+        ? (phase+"생성 중… "+(bi+1)+"/"+batches.length+" 묶음")
+        : (phase+"생성 중… ("+bn+"문항)");
+    }
     const vnote=(variation?"이전에 출제한 것과 겹치지 않는 완전히 새로운 문제로 출제하세요. ":"")+(note||"");
     const avoidText = avoid.length ? avoid.slice(-60).join("\n- ") : "";
     const prompt=buildGenPrompt(secLabel, topicStr, bn, diffLabel, vnote, weakNote, avoidText);
@@ -2108,15 +2111,11 @@ async function generateAdaptive(){
   try{
     const seq = await nextSeq(genSection);
     let avoid = await fetchAvoidStems(genSection);
-    const setLabel=(s)=>{ btn.textContent=s; };
-    setLabel("모듈 1 생성 중… (1/3)");
-    const m1 = await runGeneration({ section:genSection, topics:genTopics, difficulty:m1Diff, count:moduleN, note, weakNote:genWeakNote, student:genStudent, variation:false, avoidStems:avoid }, btn);
+    const m1 = await runGeneration({ section:genSection, topics:genTopics, difficulty:m1Diff, count:moduleN, note, weakNote:genWeakNote, student:genStudent, variation:false, avoidStems:avoid, phaseLabel:"모듈 1/3" }, btn);
     avoid = avoid.concat(m1.questions.map(q=>String(q.stem||"").slice(0,70)));
-    setLabel("모듈 2 (쉬움) 생성 중… (2/3)");
-    const m2e = await runGeneration({ section:genSection, topics:genTopics, difficulty:'easy', count:moduleN, note, weakNote:genWeakNote, student:genStudent, variation:false, avoidStems:avoid }, btn);
+    const m2e = await runGeneration({ section:genSection, topics:genTopics, difficulty:'easy', count:moduleN, note, weakNote:genWeakNote, student:genStudent, variation:false, avoidStems:avoid, phaseLabel:"모듈 2/3 (쉬움)" }, btn);
     avoid = avoid.concat(m2e.questions.map(q=>String(q.stem||"").slice(0,70)));
-    setLabel("모듈 2 (어려움) 생성 중… (3/3)");
-    const m2h = await runGeneration({ section:genSection, topics:genTopics, difficulty:'hard', count:moduleN, note, weakNote:genWeakNote, student:genStudent, variation:false, avoidStems:avoid }, btn);
+    const m2h = await runGeneration({ section:genSection, topics:genTopics, difficulty:'hard', count:moduleN, note, weakNote:genWeakNote, student:genStudent, variation:false, avoidStems:avoid, phaseLabel:"모듈 3/3 (어려움)" }, btn);
 
     const renum=(arr,base)=>arr.map((q,i)=>({ ...q, number:base+i+1 }));
     const modules={ m1:renum(m1.questions,0), m2e:renum(m2e.questions,0), m2h:renum(m2h.questions,0) };
