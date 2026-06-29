@@ -699,13 +699,14 @@
           </div>
         </div>
         <div>
-          <label class="fld">문항 수 <span class="muted">(1~20)</span></label>
-          <input id="genCount" type="number" min="1" max="20" value="5" />
-          <div style="display:flex;gap:6px;margin-top:6px">
-            <button type="button" class="topic-chip" onclick="document.getElementById('genCount').value=5">5문항</button>
-            <button type="button" class="topic-chip" onclick="document.getElementById('genCount').value=10">10문항</button>
-            <button type="button" class="topic-chip" onclick="document.getElementById('genCount').value=20">한 모듈(20)</button>
+          <label class="fld">문항 수 <span class="muted">(실전 기준 자동)</span></label>
+          <input id="genCount" type="number" min="1" max="54" value="5" />
+          <div style="display:flex;gap:6px;margin-top:6px;flex-wrap:wrap">
+            <button type="button" class="topic-chip" onclick="setGenCount('quick')">빠른 연습 5</button>
+            <button type="button" class="topic-chip" onclick="setGenCount('module')">1 모듈</button>
+            <button type="button" class="topic-chip" onclick="setGenCount('full')">풀 세트(2모듈)</button>
           </div>
+          <div class="muted" id="genCountHint" style="font-size:11px;margin-top:5px"></div>
         </div>
       </div>
 
@@ -1672,7 +1673,24 @@ document.querySelectorAll("#genSectionSeg button").forEach(b=>b.addEventListener
   genSection=b.dataset.sec; genTopics=[];
   document.querySelectorAll("#genSectionSeg button").forEach(x=>x.classList.toggle("on",x===b));
   renderGenTopics();
+  updateGenCountHint();
 }));
+
+// 실전 Digital SAT 문항 수: R&W 모듈 27/풀 54, Math 모듈 22/풀 44
+function setGenCount(type){
+  const isMath = genSection==='math';
+  let n = 5;
+  if(type==='module') n = isMath?22:27;
+  else if(type==='full') n = isMath?44:54;
+  document.getElementById("genCount").value = n;
+  updateGenCountHint();
+}
+function updateGenCountHint(){
+  const el=document.getElementById("genCountHint"); if(!el) return;
+  el.textContent = (genSection==='math')
+    ? "실전 Math: 한 모듈 22문항 · 풀 세트 44문항"
+    : "실전 R&W: 한 모듈 27문항 · 풀 세트 54문항";
+}
 document.querySelectorAll("#genDiffSeg button").forEach(b=>b.addEventListener("click",()=>{
   genDifficulty=b.dataset.d;
   document.querySelectorAll("#genDiffSeg button").forEach(x=>x.classList.toggle("on",x===b));
@@ -1717,6 +1735,7 @@ function showGenerate(student=null, weakTypes=[], section="rw"){
       +'<div class="muted" style="font-size:13px">진단에서 누적된 약점: <b>'+esc(genWeakNote)+'</b><br>이 유형을 겨냥한 문제로 출제합니다. 아래에서 유형·난이도를 더 조절할 수 있어요.</div></div>';
   } else { wbox.innerHTML=""; }
   renderGenTopics();
+  updateGenCountHint();
   loadRecentSets();
   show("generate");
 }
@@ -1853,7 +1872,7 @@ async function generateProblems(){
   if(!configured){ errBox.innerHTML='<div class="err">Supabase 설정을 먼저 완료하세요.</div>'; return; }
   let count=parseInt(document.getElementById("genCount").value,10);
   if(isNaN(count)||count<1) count=5;
-  if(count>20) count=20;
+  if(count>54) count=54;
   const note=document.getElementById("genNote").value.trim();
   const btn=document.getElementById("genBtn"); btn.disabled=true;
   try{
