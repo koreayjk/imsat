@@ -2198,8 +2198,9 @@ async function runGeneration(opts, btn){
       if(parsed && Array.isArray(parsed.questions) && parsed.questions.length){ data=parsed; break; }
     }
     if(!data){
-      try{ console.error("[생성 파싱 실패] 원본 응답 끝부분:", String(lastRaw).slice(-400)); }catch(_e){}
-      throw new Error("응답을 해석하지 못했습니다. 잠시 후 다시 시도해 주세요. (문항 수를 줄이거나 다시 시도)");
+      // 이 묶음은 실패 → 전체를 죽이지 말고 건너뛴다(다른 묶음으로 채움)
+      try{ console.error("[생성 파싱 실패·묶음 건너뜀] 원본 응답 끝부분:", String(lastRaw).slice(-400)); }catch(_e){}
+      continue;
     }
     if(!title) title=data.title;
     all=all.concat(data.questions);
@@ -2207,6 +2208,21 @@ async function runGeneration(opts, btn){
     // R&W는 발문이 정형화돼 있어 지문 소재를, 수학은 발문을 키로 사용
     data.questions.forEach(q=>{ if(typeof q==='object'&&q){ avoid.push(avoidKeyOf(q)); } });
     avoid=avoid.filter(Boolean);
+  }
+  // 일부 묶음이 실패해 부족하면, 모자란 만큼 한 번 더 보충 시도
+  if(all.length>0 && all.length<count){
+    const need=Math.min(count-all.length, isMath?3:5);
+    if(btn) btn.textContent=(opts.phaseLabel?opts.phaseLabel+" · ":"")+"부족분 보충 중…";
+    try{
+      const avoidText=avoid.length?avoid.slice(-60).join("\n- "):"";
+      const prompt=buildGenPrompt(secLabel, topicStr, need, diffLabel, (note||""), weakNote, avoidText, "");
+      const res=await fetch(ANALYZE_URL,{ method:"POST", headers:await fnHeaders(),
+        body:JSON.stringify({ task:"generate", max_tokens:Math.min(8000, 1100*need+1200),
+          messages:[{ role:"user", content:[{ type:"text", text:prompt }] }] }) });
+      const out=await res.json();
+      const d2=out.error?null:parseModelJSON(out.text||"");
+      if(d2 && Array.isArray(d2.questions)) all=all.concat(d2.questions);
+    }catch(_e){}
   }
   if(all.length===0) throw new Error("문제를 생성하지 못했습니다. 다시 시도해 주세요.");
   all=all.slice(0,count).map((q,i)=>({ ...q, number:i+1 }));
