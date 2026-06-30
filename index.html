@@ -225,6 +225,25 @@
   .qa-ans b{color:#0f766e}
   .qa-ans b.qa-mismatch{color:#b91c1c}
   .qa-stem{font-size:13px;line-height:1.55;color:#334155}
+  /* 실전 매칭도 */
+  .qa-overall{display:flex;align-items:center;gap:16px;border:1px solid var(--line);border-radius:14px;padding:16px 18px}
+  .qa-overall.qa-m-hi{background:var(--teal-bg);border-color:#99f6e4}
+  .qa-overall.qa-m-mid{background:var(--amber-bg);border-color:#fed7aa}
+  .qa-overall.qa-m-lo{background:#fff1f2;border-color:#fecaca}
+  .qa-big{font-size:42px;font-weight:900;line-height:1;letter-spacing:-.02em}
+  .qa-big small{font-size:18px;font-weight:800}
+  .qa-m-hi .qa-big,.qa-m-hi.qa-big{color:#0f766e} .qa-m-mid .qa-big,.qa-m-mid.qa-big{color:#b45309} .qa-m-lo .qa-big,.qa-m-lo.qa-big{color:#be123c}
+  .qa-big-lbl{font-size:14px;font-weight:800;color:var(--ink)}
+  .qa-match{font-size:11.5px;font-weight:800;border-radius:999px;padding:3px 10px;white-space:nowrap}
+  .qa-match small{font-size:9px}
+  .qa-match.qa-m-hi{background:var(--teal-bg);color:#0f766e} .qa-match.qa-m-mid{background:var(--amber-bg);color:#b45309} .qa-match.qa-m-lo{background:#fff1f2;color:#be123c}
+  .qa-bar{height:6px;border-radius:999px;background:#eef2f6;overflow:hidden;margin:8px 0}
+  .qa-bar-fill{display:block;height:100%;border-radius:999px}
+  .qa-bar-fill.qa-m-hi{background:var(--teal)} .qa-bar-fill.qa-m-mid{background:var(--amber)} .qa-bar-fill.qa-m-lo{background:#f43f5e}
+  .qa-gaps{font-size:12.5px;color:#92400e;background:var(--amber-bg);border-radius:8px;padding:7px 11px;margin-top:7px;line-height:1.5}
+  .qa-gaps b{color:#b45309}
+  .qa-ref{margin-top:14px;border:1px dashed #cbd5e1;border-radius:12px;padding:10px 14px}
+  .qa-ref summary{cursor:pointer;font-weight:700;color:var(--ink2);font-size:13.5px}
   @media print{
     .paper{border:none;padding:0;margin:0}
     /* 한 페이지에 좌우 2열(보통 4문제). 문항은 페이지/열 사이에서 잘리지 않음 */
@@ -2431,12 +2450,31 @@ function qaMatch(q, claudeAns){
   }
   return stored.toUpperCase()===String(claudeAns||"").trim().toUpperCase();
 }
+let qaRefText="";  // 선생님이 붙여넣은 공식 기준 문항(선택)
+// 공식 Digital SAT 규격 루브릭 (영역별)
+function officialSpec(isMath){
+  return isMath
+    ? `[공식 Digital SAT Math 규격]
+- 도메인: Algebra / Advanced Math / Problem-Solving and Data Analysis / Geometry and Trigonometry.
+- 형식: 약 75% 4지선다 + 약 25% 직접입력(grid-in). 발문은 간결하고 군더더기 없음.
+- 선택지는 전형적 계산 실수(부호·분배·단위·공식 혼동)에서 나온 "그럴듯한" 값. 무작위 금지.
+- 정답은 단 하나로 확정. 실제 출제는 불필요하게 복잡하거나 함정만을 위한 함정을 두지 않음.`
+    : `[공식 Digital SAT Reading & Writing 규격]
+- 한 문항 = 하나의 짧은 지문(약 25~150단어). 출처 느낌(문학/역사·사회/인문/과학)이 자연스러움.
+- 표준 발문 사용: Words in Context / Text Structure & Purpose / Central Ideas & Details / Command of Evidence(Textual·Quantitative) / Inferences / Boundaries / Form, Structure & Sense / Transitions / Rhetorical Synthesis.
+- 4지선다, 정답은 지문만으로 단 하나로 확정. 오답은 흔한 오독을 정확히 반영.
+- 문장·어휘 난이도가 실제 시험과 비슷하고, 인위적으로 어렵거나 쉽지 않음.`;
+}
 async function verifyPaper(){
   if(!currentPaper || !(currentPaper.questions||[]).length) return;
   const v=document.getElementById("view-paper");
   const qs=currentPaper.questions;
+  const isMath=/math/i.test(currentPaper.section||"");
+  // 화면에 떠 있는 기준 문항 입력값을 반영
+  const refEl=document.getElementById("qaRef"); if(refEl) qaRefText=refEl.value||"";
+  const refText=(qaRefText||"").trim();
   v.innerHTML=`<div class="btn-row no-print" style="margin-bottom:16px"><button class="btn btn-ghost" style="flex:0 0 auto;width:auto;padding:9px 16px" onclick="renderPaper()">← 시험지로</button></div>
-    <div class="loading"><div class="spinner"></div>Claude가 ${qs.length}문항을 직접 풀어 검수 중… (문항 수에 따라 20~60초)</div>
+    <div class="loading"><div class="spinner"></div>Claude가 ${qs.length}문항을 직접 풀고 실전 규격과 대조 중… (문항 수에 따라 20~60초)</div>
     <div id="qaProg" class="muted" style="text-align:center;margin-top:8px"></div>`;
   const BATCH=6, batches=[];
   for(let i=0;i<qs.length;i+=BATCH) batches.push(qs.slice(i,i+BATCH).map((q,j)=>({q,vid:i+j})));
@@ -2447,21 +2485,25 @@ async function verifyPaper(){
       const items=batches[bi];
       const secLabel=SECTION_LABEL[currentPaper.section]||currentPaper.section;
       const body=items.map(it=>`[문항 vid=${it.vid}]\n${qaQText(it.q)}`).join("\n\n---\n\n");
-      const prompt=`당신은 미국 College Board 출신 Digital SAT 검수 전문가입니다. 아래 ${secLabel} 문항들을 정답을 모른 채 직접 풀고, 출제 품질을 점검하세요.
-각 문항에 대해:
-- answer: 당신이 푼 정답. 객관식이면 A/B/C/D 한 글자, grid-in이면 숫자/분수.
-- ambiguous: 정답이 두 개 이상 가능하거나 발문이 모호하면 true.
-- issues: 발견한 문제점 배열(한국어). 예: "선택지 B도 정답 가능", "지문에 근거 없음", "문법 오류", "선택지 중복", "정답 없음". 없으면 빈 배열.
+      const refBlock = refText
+        ? `\n[기준 문항 — 선생님이 제공한 실제 공식 SAT 문항] 이 문항의 형식·문체·난이도·선택지 설계를 "정답 기준"으로 삼아, 아래 출제 문항이 이와 얼마나 닮았는지 비교하세요:\n"""\n${refText.slice(0,2500)}\n"""\n`
+        : "";
+      const prompt=`당신은 미국 College Board 출신 Digital SAT 검수 전문가입니다. 아래 ${secLabel} 출제 문항들을 (1) 정답을 모른 채 직접 풀고, (2) 실제 공개 Digital SAT 문항과 얼마나 일치하는지 평가하세요.
+
+${officialSpec(isMath)}
+${refBlock}
+각 문항에 대해 아래를 판정:
+- answer: 당신이 푼 정답(객관식 A~D 한 글자, grid-in은 숫자/분수).
+- ambiguous: 정답이 둘 이상 가능하거나 발문이 모호하면 true.
+- issues: 명백한 결함 배열(한국어). 예 "선택지 B도 정답 가능","지문에 근거 없음","문법 오류","정답 없음". 없으면 빈 배열.
 - difficulty: 체감 난이도 "easy"|"medium"|"hard".
-정답이 깔끔하게 하나로 떨어지고 발문이 명확하면 issues는 비웁니다. 엄격하게, 그러나 트집은 잡지 마세요.
+- match: 0~100 정수. "실제 공개 Digital SAT 문항과 구별 불가능한 정도". 형식·표준 발문·지문/맥락 규격·선택지 설계·난이도 보정을 종합. 90+는 실전과 사실상 동일, 70~89 양호하나 약간 어색, 70 미만은 실전과 눈에 띄게 다름.
+- gaps: 실전과 다른 점을 1~3개 짧은 한국어로(없으면 빈 배열). 예 "지문이 SAT보다 김","발문 표현이 비표준","선택지가 너무 쉽게 갈림".
 
-문항들:
-${body}
-
-아래 JSON만 출력(백틱·설명 금지):
-{"results":[{"vid":0,"answer":"A","ambiguous":false,"issues":[],"difficulty":"medium"}]}`;
+엄격하되 공정하게. 아래 JSON만 출력(백틱·설명 금지):
+{"results":[{"vid":0,"answer":"A","ambiguous":false,"issues":[],"difficulty":"medium","match":88,"gaps":[]}]}`;
       const res=await fetch(ANALYZE_URL,{ method:"POST", headers:await fnHeaders(),
-        body:JSON.stringify({ max_tokens:Math.min(8000, 600*items.length+1200), messages:[{role:"user",content:[{type:"text",text:prompt}]}] }) });
+        body:JSON.stringify({ max_tokens:Math.min(8000, 750*items.length+1200), messages:[{role:"user",content:[{type:"text",text:prompt}]}] }) });
       const out=await res.json();
       if(out.error) throw new Error(out.error);
       const parsed=parseModelJSON(out.text||"");
@@ -2473,51 +2515,73 @@ ${body}
       <div class="err">검수 실패: ${esc(String(e.message||e))}</div>`;
   }
 }
+function matchClass(m){ return m>=90?"hi":m>=70?"mid":"lo"; }
+function matchLabel(m){ return m>=90?"실전급":m>=70?"양호":"개선 필요"; }
 function renderQAReport(results){
   const v=document.getElementById("view-paper");
   const qs=currentPaper.questions||[];
-  let ok=0, flag=0, miss=0;
+  let ok=0, flag=0, miss=0, matchSum=0, matchCnt=0;
   const rows=qs.map((q,idx)=>{
     const n=q.number||idx+1;
     const r=results[idx];
     if(!r){ miss++; return `<div class="qa-row qa-miss"><div class="qa-head"><span class="pq-num">${esc(String(n))}</span><span class="qa-badge qa-badge-miss">검수 누락</span></div></div>`; }
     const agree=qaMatch(q, r.answer);
     const issues=Array.isArray(r.issues)?r.issues.filter(Boolean):[];
+    const gaps=Array.isArray(r.gaps)?r.gaps.filter(Boolean):[];
+    const m=Math.max(0,Math.min(100,Math.round(Number(r.match))||0));
+    if(Number.isFinite(Number(r.match))){ matchSum+=m; matchCnt++; }
     const problem = !agree || r.ambiguous || issues.length>0;
     if(problem) flag++; else ok++;
     const tags=[];
     if(!agree) tags.push(`<span class="qa-tag qa-tag-red">정답 불일치</span>`);
     if(r.ambiguous) tags.push(`<span class="qa-tag qa-tag-amber">모호함</span>`);
     issues.forEach(is=>tags.push(`<span class="qa-tag qa-tag-amber">${esc(is)}</span>`));
-    if(!problem) tags.push(`<span class="qa-tag qa-tag-green">양호</span>`);
+    if(!problem) tags.push(`<span class="qa-tag qa-tag-green">정답 OK</span>`);
     const storedA=esc(String(q.answer||"-"));
     const claudeA=esc(String(r.answer||"-"));
+    const mc=matchClass(m);
     return `<div class="qa-row ${problem?'qa-flag':'qa-good'}">
       <div class="qa-head">
         <span class="pq-num">${esc(String(n))}</span>
         ${q.skill?`<span class="pq-skill">${esc(q.skill)}</span>`:""}
         <span class="muted" style="font-size:11px">체감 난이도 ${esc(DIFF_LABEL[r.difficulty]||r.difficulty||"-")}</span>
         <span style="flex:1"></span>
+        <span class="qa-match qa-m-${mc}">실전 매칭 ${m}<small>%</small> · ${matchLabel(m)}</span>
         ${tags.join("")}
       </div>
+      <div class="qa-bar"><span class="qa-bar-fill qa-m-${mc}" style="width:${m}%"></span></div>
       <div class="qa-ans">시험지 정답 <b class="${agree?'':'qa-mismatch'}">${storedA}</b> · Claude 풀이 <b class="${agree?'':'qa-mismatch'}">${claudeA}</b></div>
       <div class="qa-stem">${esc(q.stem||"")}</div>
+      ${gaps.length?`<div class="qa-gaps"><b>실전과 다른 점:</b> ${gaps.map(g=>esc(g)).join(" · ")}</div>`:""}
     </div>`;
   }).join("");
   const total=qs.length;
+  const avg=matchCnt?Math.round(matchSum/matchCnt):0;
+  const ac=matchClass(avg);
+  const refSet=(qaRefText||"").trim();
   v.innerHTML=`<div class="btn-row no-print" style="margin-bottom:16px"><button class="btn btn-ghost" style="flex:0 0 auto;width:auto;padding:9px 16px" onclick="renderPaper()">← 시험지로</button>
       <button class="btn btn-ghost" onclick="verifyPaper()">🔄 다시 검수</button></div>
     <div class="card" style="margin-bottom:16px">
-      <h3 style="margin:0 0 4px">🔍 문제 검수 결과 <span class="muted" style="font-weight:400;font-size:13px">— Claude 교차검증</span></h3>
-      <div class="muted" style="font-size:13px;margin-bottom:12px">Claude가 정답을 모른 채 직접 풀어 시험지 정답과 대조했습니다.</div>
-      <div class="qa-stats">
-        <div class="qa-stat qa-stat-green"><div class="qa-num">${ok}</div><div>양호</div></div>
+      <h3 style="margin:0 0 4px">🔍 문제 검수 · 실전 매칭도 <span class="muted" style="font-weight:400;font-size:13px">— Claude 교차검증</span></h3>
+      <div class="muted" style="font-size:13px;margin-bottom:14px">Claude가 정답을 직접 풀어 대조하고, 공식 Digital SAT 규격${refSet?" + 선생님이 제공한 기준 문항":""}과 얼마나 닮았는지 채점했습니다.</div>
+      <div class="qa-overall qa-m-${ac}">
+        <div class="qa-big">${avg}<small>%</small></div>
+        <div><div class="qa-big-lbl">평균 실전 매칭도</div><div class="muted" style="font-size:12.5px">${avg>=90?"실제 시험과 사실상 동일한 수준":avg>=70?"실전에 가깝지만 일부 다듬을 여지가 있음":"실전과 차이가 큼 — 재출제 권장"}</div></div>
+      </div>
+      <div class="qa-stats" style="margin-top:14px">
+        <div class="qa-stat qa-stat-green"><div class="qa-num">${ok}</div><div>정답 양호</div></div>
         <div class="qa-stat qa-stat-amber"><div class="qa-num">${flag}</div><div>확인 필요</div></div>
         ${miss?`<div class="qa-stat"><div class="qa-num">${miss}</div><div>검수 누락</div></div>`:""}
         <div class="qa-stat"><div class="qa-num">${total}</div><div>전체</div></div>
       </div>
-      ${flag?`<div class="config-warn" style="margin-top:12px">⚠️ <b>${flag}문항</b>에서 정답 불일치·모호함·기타 이슈가 발견됐습니다. 아래에서 확인 후 “🔄 비슷하게 새 문제”로 교체하거나 수정하세요.</div>`
-        :`<div class="card" style="margin-top:12px;background:var(--teal-bg);border-color:#99f6e4;color:#0f766e;font-size:13px">✅ 모든 문항이 양호합니다. Claude 풀이가 시험지 정답과 일치하고 모호함이 없습니다.</div>`}
+      ${flag?`<div class="config-warn" style="margin-top:12px">⚠️ <b>${flag}문항</b>에서 정답 불일치·모호함·이슈가 발견됐습니다. 아래에서 확인 후 “🔄 비슷하게 새 문제”로 교체하세요.</div>`
+        :`<div class="card" style="margin-top:12px;background:var(--teal-bg);border-color:#99f6e4;color:#0f766e;font-size:13px">✅ 모든 문항 정답이 깔끔하고 모호함이 없습니다.</div>`}
+      <details class="qa-ref" ${refSet?"open":""}>
+        <summary>📋 공식 기준 문항으로 더 정확히 비교 (선택)</summary>
+        <div class="muted" style="font-size:12.5px;margin:8px 0">College Board <b>Educator Question Bank</b>나 <b>Bluebook</b>에서 같은 유형·난이도의 실제 공식 문항을 복사해 아래에 붙여넣고 다시 검수하면, 그 문항을 기준으로 더 정밀하게 매칭도를 매깁니다. (저작권상 시험지에 저장되지 않고 비교에만 쓰입니다)</div>
+        <textarea id="qaRef" rows="5" style="width:100%;font-size:13px" placeholder="여기에 실제 공식 SAT 문항(지문+발문+선택지)을 붙여넣으세요…">${esc(qaRefText||"")}</textarea>
+        <button class="btn btn-primary" style="width:auto;padding:9px 16px;margin-top:8px" onclick="verifyPaper()">📋 이 기준으로 다시 검수</button>
+      </details>
     </div>
     <div class="qa-list">${rows}</div>`;
   typesetMath(v);
