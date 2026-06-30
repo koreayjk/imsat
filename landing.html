@@ -1,0 +1,363 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>IMSAT — AI 기반 SAT 진단·출제 플랫폼 | INTO유학센터</title>
+<meta name="description" content="AI가 실전 Digital SAT 문항을 출제하고, 학생 오답을 깊이 진단하며, 온라인 응시·자동 채점·누적 분석까지 한 번에. SAT 강사를 위한 올인원 교육 도구 IMSAT." />
+<meta property="og:title" content="IMSAT — AI 기반 SAT 진단·출제 플랫폼" />
+<meta property="og:description" content="실전 SAT 문항 출제 + AI 오답 진단 + 온라인 응시 + 누적 분석. 강사를 위한 올인원." />
+<link rel="preconnect" href="https://cdn.jsdelivr.net" />
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.min.css" />
+<style>
+  :root{
+    --bg:#f7f8fa; --card:#fff; --ink:#0f172a; --ink2:#334155; --mut:#64748b;
+    --line:#e2e8f0; --amber:#d97706; --amber-bg:#fffbeb; --teal:#0d9488;
+    --teal-bg:#f0fdfa; --rose:#e11d48; --navy:#0f172a;
+  }
+  *{box-sizing:border-box}
+  html{scroll-behavior:smooth}
+  body{margin:0;background:var(--bg);color:var(--ink2);line-height:1.7;
+    font-family:'Pretendard',-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;
+    -webkit-font-smoothing:antialiased;}
+  a{color:inherit;text-decoration:none}
+  .wrap{max-width:1080px;margin:0 auto;padding:0 24px}
+  .eyebrow{display:inline-flex;align-items:center;gap:8px;font-size:12px;font-weight:800;
+    letter-spacing:.18em;text-transform:uppercase;color:var(--amber)}
+  .eyebrow .rule{width:24px;height:1px;background:var(--amber)}
+
+  /* ---------- nav ---------- */
+  nav{position:sticky;top:0;z-index:50;background:rgba(247,248,250,.82);
+    backdrop-filter:saturate(180%) blur(12px);border-bottom:1px solid var(--line)}
+  nav .wrap{display:flex;align-items:center;justify-content:space-between;height:64px}
+  .brand{display:flex;align-items:center;gap:10px;font-weight:900;color:var(--ink);font-size:20px;letter-spacing:-.02em}
+  .brand .mark{width:34px;height:34px;border-radius:9px;display:grid;place-items:center;color:#fff;font-size:15px;
+    background:linear-gradient(135deg,var(--teal),#0f766e);box-shadow:0 6px 16px -6px rgba(13,148,136,.6)}
+  .navlinks{display:flex;gap:28px;font-size:14px;font-weight:600;color:var(--mut)}
+  .navlinks a:hover{color:var(--ink)}
+  .btn{display:inline-flex;align-items:center;gap:8px;font-weight:700;font-size:14px;
+    border-radius:10px;padding:11px 20px;cursor:pointer;border:1px solid transparent;transition:.15s}
+  .btn-primary{background:var(--navy);color:#fff}
+  .btn-primary:hover{transform:translateY(-1px);box-shadow:0 10px 24px -10px rgba(15,23,42,.5)}
+  .btn-ghost{background:#fff;color:var(--ink);border-color:#cbd5e1}
+  .btn-ghost:hover{border-color:var(--ink)}
+  @media(max-width:720px){.navlinks{display:none}}
+
+  /* ---------- hero ---------- */
+  .hero{position:relative;overflow:hidden;padding:84px 0 72px;
+    background:radial-gradient(1200px 500px at 80% -10%,#e0f2f1 0%,transparent 60%),
+               radial-gradient(900px 480px at -5% 10%,#fff7ed 0%,transparent 55%)}
+  .hero h1{font-size:clamp(34px,5.2vw,58px);line-height:1.12;font-weight:900;color:var(--ink);
+    margin:18px 0 0;letter-spacing:-.03em}
+  .hero h1 .hl{background:linear-gradient(transparent 62%,#99f6e4 62%)}
+  .hero p.sub{font-size:clamp(16px,2vw,20px);color:var(--ink2);max-width:620px;margin:20px 0 32px}
+  .hero .cta{display:flex;gap:12px;flex-wrap:wrap}
+  .hero .trust{margin-top:26px;font-size:13px;color:var(--mut);display:flex;gap:18px;flex-wrap:wrap;align-items:center}
+  .hero .trust b{color:var(--ink)}
+  .badge-ai{display:inline-flex;align-items:center;gap:7px;background:#fff;border:1px solid var(--line);
+    border-radius:999px;padding:6px 13px;font-size:12.5px;font-weight:700;color:var(--ink2);
+    box-shadow:0 2px 8px -4px rgba(15,23,42,.12)}
+  .dot{width:7px;height:7px;border-radius:50%}
+
+  /* hero mock */
+  .hero-grid{display:grid;grid-template-columns:1.05fr .95fr;gap:48px;align-items:center}
+  @media(max-width:860px){.hero-grid{grid-template-columns:1fr;gap:36px}}
+  .mock{background:#fff;border:1px solid var(--line);border-radius:18px;padding:18px;
+    box-shadow:0 30px 60px -28px rgba(15,23,42,.35);transform:rotate(.4deg)}
+  .mock .mbar{display:flex;gap:6px;margin-bottom:14px}
+  .mock .mbar i{width:11px;height:11px;border-radius:50%;display:block}
+  .mock .mq{border:1px solid var(--line);border-radius:12px;padding:14px;margin-bottom:10px}
+  .mock .mq .tag{font-size:11px;font-weight:800;color:var(--teal);text-transform:uppercase;letter-spacing:.08em}
+  .mock .mq .stem{font-size:13.5px;color:var(--ink);font-weight:600;margin:6px 0 10px}
+  .mock .mq .opt{font-size:12.5px;padding:7px 11px;border:1px solid var(--line);border-radius:8px;margin-bottom:6px;color:var(--ink2)}
+  .mock .mq .opt.ok{border-color:#5eead4;background:var(--teal-bg);color:#0f766e;font-weight:700}
+  .mock .diag{background:var(--amber-bg);border:1px solid #fde68a;border-radius:12px;padding:13px}
+  .mock .diag .dh{font-size:12px;font-weight:800;color:var(--amber);margin-bottom:6px;display:flex;align-items:center;gap:6px}
+  .mock .diag p{margin:0;font-size:12.5px;color:#92400e;line-height:1.55}
+
+  /* ---------- logos / stat strip ---------- */
+  .strip{border-top:1px solid var(--line);border-bottom:1px solid var(--line);background:#fff}
+  .strip .wrap{display:grid;grid-template-columns:repeat(4,1fr);gap:24px;padding:30px 24px;text-align:center}
+  .strip .num{font-size:30px;font-weight:900;color:var(--ink);letter-spacing:-.02em}
+  .strip .lbl{font-size:13px;color:var(--mut);font-weight:600;margin-top:2px}
+  @media(max-width:640px){.strip .wrap{grid-template-columns:repeat(2,1fr);gap:20px}}
+
+  /* ---------- sections ---------- */
+  section.block{padding:84px 0}
+  .sec-head{text-align:center;max-width:640px;margin:0 auto 52px}
+  .sec-head h2{font-size:clamp(26px,3.6vw,40px);font-weight:900;color:var(--ink);letter-spacing:-.025em;margin:12px 0 14px;line-height:1.2}
+  .sec-head p{font-size:16.5px;color:var(--mut);margin:0}
+
+  .features{display:grid;grid-template-columns:repeat(3,1fr);gap:20px}
+  @media(max-width:860px){.features{grid-template-columns:1fr 1fr}}
+  @media(max-width:560px){.features{grid-template-columns:1fr}}
+  .fcard{background:#fff;border:1px solid var(--line);border-radius:16px;padding:26px 24px;transition:.18s}
+  .fcard:hover{transform:translateY(-4px);box-shadow:0 22px 44px -26px rgba(15,23,42,.4);border-color:#cbd5e1}
+  .fcard .ic{width:46px;height:46px;border-radius:12px;display:grid;place-items:center;font-size:22px;margin-bottom:16px}
+  .ic.teal{background:var(--teal-bg);color:var(--teal)} .ic.amber{background:var(--amber-bg);color:var(--amber)}
+  .ic.navy{background:#eef2ff;color:#4338ca} .ic.rose{background:var(--rose-bg);color:var(--rose)}
+  .fcard h3{font-size:18px;font-weight:800;color:var(--ink);margin:0 0 8px}
+  .fcard p{font-size:14.5px;color:var(--ink2);margin:0}
+  .fcard .chip{display:inline-block;margin-top:13px;font-size:11.5px;font-weight:800;letter-spacing:.04em;
+    padding:4px 10px;border-radius:999px;background:#f1f5f9;color:var(--mut)}
+  .chip.gem{background:#eff6ff;color:#2563eb} .chip.cla{background:#faf5ff;color:#9333ea}
+
+  /* ---------- workflow ---------- */
+  .flow{display:grid;grid-template-columns:repeat(4,1fr);gap:18px;counter-reset:step}
+  @media(max-width:860px){.flow{grid-template-columns:1fr 1fr}}
+  @media(max-width:480px){.flow{grid-template-columns:1fr}}
+  .step{position:relative;background:#fff;border:1px solid var(--line);border-radius:16px;padding:28px 22px}
+  .step .n{counter-increment:step;position:absolute;top:-16px;left:22px;width:34px;height:34px;border-radius:10px;
+    background:var(--navy);color:#fff;font-weight:800;display:grid;place-items:center;font-size:15px}
+  .step .n::before{content:counter(step)}
+  .step h4{margin:12px 0 6px;font-size:16.5px;font-weight:800;color:var(--ink)}
+  .step p{margin:0;font-size:14px;color:var(--ink2)}
+
+  /* ---------- split highlight ---------- */
+  .split{display:grid;grid-template-columns:1fr 1fr;gap:48px;align-items:center}
+  @media(max-width:860px){.split{grid-template-columns:1fr;gap:32px}}
+  .split.rev .vis{order:2}
+  .split .vis{background:linear-gradient(160deg,#0f172a,#134e4a);border-radius:20px;padding:30px;color:#e2e8f0;
+    box-shadow:0 30px 60px -30px rgba(15,23,42,.6)}
+  .split ul{list-style:none;padding:0;margin:18px 0 0}
+  .split ul li{display:flex;gap:12px;align-items:flex-start;margin-bottom:14px;font-size:15px;color:var(--ink2)}
+  .split ul li .ck{flex:0 0 22px;height:22px;border-radius:7px;background:var(--teal-bg);color:var(--teal);
+    display:grid;place-items:center;font-size:13px;font-weight:900;margin-top:1px}
+  .vis .row{display:flex;justify-content:space-between;align-items:center;padding:11px 0;border-bottom:1px solid rgba(255,255,255,.1);font-size:14px}
+  .vis .row:last-child{border-bottom:0}
+  .vis .row .v{font-weight:800;color:#fff}
+  .vis .pill{font-size:11px;font-weight:800;padding:3px 9px;border-radius:999px}
+  .pill-up{background:rgba(45,212,191,.18);color:#5eead4} .pill-dn{background:rgba(251,113,133,.18);color:#fda4af}
+  .vis h4{color:#fff;margin:0 0 6px;font-size:17px} .vis .cap{font-size:12.5px;color:#94a3b8;margin:0 0 16px}
+
+  /* ---------- CTA ---------- */
+  .cta-block{background:linear-gradient(135deg,#0f172a,#115e59);color:#fff;border-radius:24px;
+    padding:56px 40px;text-align:center;box-shadow:0 40px 80px -36px rgba(15,23,42,.6)}
+  .cta-block h2{font-size:clamp(26px,3.6vw,38px);font-weight:900;margin:0 0 14px;letter-spacing:-.02em}
+  .cta-block p{font-size:17px;color:#cbd5e1;margin:0 0 28px}
+  .cta-block .btn-light{background:#fff;color:var(--navy)}
+  .cta-block .btn-light:hover{transform:translateY(-1px)}
+  .cta-block .btn-out{background:transparent;border-color:rgba(255,255,255,.35);color:#fff}
+
+  footer{padding:46px 0;border-top:1px solid var(--line);margin-top:20px}
+  footer .wrap{display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:16px;font-size:13.5px;color:var(--mut)}
+  footer .brand{font-size:17px}
+
+  /* reveal */
+  .reveal{opacity:0;transform:translateY(18px);transition:.6s cubic-bezier(.2,.7,.2,1)}
+  .reveal.in{opacity:1;transform:none}
+</style>
+</head>
+<body>
+
+<nav>
+  <div class="wrap">
+    <a class="brand" href="#top"><span class="mark">IM</span>IMSAT</a>
+    <div class="navlinks">
+      <a href="#features">기능</a>
+      <a href="#flow">사용 흐름</a>
+      <a href="#ai">AI 진단</a>
+      <a href="#online">온라인 응시</a>
+    </div>
+    <a class="btn btn-primary" href="index.html">시작하기 →</a>
+  </div>
+</nav>
+
+<!-- HERO -->
+<header class="hero" id="top">
+  <div class="wrap hero-grid">
+    <div>
+      <span class="eyebrow"><span class="rule"></span>INTO유학센터 · AI SAT PLATFORM</span>
+      <h1>SAT 수업의 모든 단계를<br><span class="hl">AI 하나로</span> 끝냅니다.</h1>
+      <p class="sub">실전 Digital SAT 문항을 직접 출제하고, 학생이 <b>왜 틀렸는지</b>까지 깊이 진단합니다.
+        온라인 응시 · 자동 채점 · 누적 성장 분석까지 — 강사를 위한 올인원 도구.</p>
+      <div class="cta">
+        <a class="btn btn-primary" href="index.html">무료로 시작하기 →</a>
+        <a class="btn btn-ghost" href="#flow">사용 흐름 보기</a>
+      </div>
+      <div class="trust">
+        <span class="badge-ai"><span class="dot" style="background:#2563eb"></span>Gemini 출제</span>
+        <span class="badge-ai"><span class="dot" style="background:#9333ea"></span>Claude 진단·검수</span>
+        <span>실전 Digital SAT 규격 100%</span>
+      </div>
+    </div>
+
+    <div class="mock reveal">
+      <div class="mbar"><i style="background:#f87171"></i><i style="background:#fbbf24"></i><i style="background:#34d399"></i></div>
+      <div class="mq">
+        <div class="tag">Reading & Writing · Inferences</div>
+        <div class="stem">Which choice most logically completes the text?</div>
+        <div class="opt">A. dismissed the new evidence outright</div>
+        <div class="opt ok">B. reconsidered her earlier conclusion ✓</div>
+        <div class="opt">C. repeated the original experiment</div>
+      </div>
+      <div class="diag">
+        <div class="dh">🧠 AI 오답 진단</div>
+        <p>학생은 C를 선택. <b>지문 근거보다 ‘재실험’이라는 익숙한 단어에 끌린 함정.</b> 결론 수정의 논리 흐름을 놓침 → 추론 유형 집중 보강 필요.</p>
+      </div>
+    </div>
+  </div>
+</header>
+
+<!-- STAT STRIP -->
+<div class="strip">
+  <div class="wrap">
+    <div><div class="num">2-모듈</div><div class="lbl">적응형 실전 구조</div></div>
+    <div><div class="num">자동</div><div class="lbl">채점 + 즉시 진단</div></div>
+    <div><div class="num">4영역</div><div class="lbl">균형 출제 보장</div></div>
+    <div><div class="num">누적</div><div class="lbl">학생 성장 분석</div></div>
+  </div>
+</div>
+
+<!-- FEATURES -->
+<section class="block" id="features">
+  <div class="wrap">
+    <div class="sec-head reveal">
+      <span class="eyebrow"><span class="rule"></span>CORE FEATURES</span>
+      <h2>강의 준비 시간을 90% 줄이는 7가지 기능</h2>
+      <p>문제 만들고, 진단하고, 시험 보고, 분석하는 일을 한 화면에서.</p>
+    </div>
+    <div class="features">
+      <div class="fcard reveal"><div class="ic teal">📝</div>
+        <h3>실전 문항 AI 출제</h3>
+        <p>공개된 Digital SAT와 구별이 안 되는 수준의 문항을 영역·유형·난이도별로 즉시 생성. 정답·해설·오답 풀이까지 완비.</p>
+        <span class="chip gem">Gemini</span></div>
+
+      <div class="fcard reveal"><div class="ic amber">🧠</div>
+        <h3>AI 오답 진단</h3>
+        <p>학생이 <b>왜 그 오답을 골랐는지</b>, 출제자 함정 의도, 정답 논리, 오답 유형까지 분석한 교사용 리포트를 자동 작성.</p>
+        <span class="chip cla">Claude</span></div>
+
+      <div class="fcard reveal"><div class="ic navy">🎯</div>
+        <h3>약점 기반 맞춤 출제</h3>
+        <p>학생의 누적 오답 유형을 읽어 약한 부분만 집중 공략하는 시험지를 자동 구성. 중복 소재는 알아서 회피.</p>
+        <span class="chip">맞춤형</span></div>
+
+      <div class="fcard reveal"><div class="ic rose">🖥️</div>
+        <h3>온라인 응시 (Bluebook 스타일)</h3>
+        <p>링크 하나로 학생이 실제 시험과 똑같은 화면에서 응시. 타이머·계산기·레퍼런스 내장, 제출 즉시 자동 채점.</p>
+        <span class="chip">실전 환경</span></div>
+
+      <div class="fcard reveal"><div class="ic teal">📈</div>
+        <h3>누적 종합 분석</h3>
+        <p>시험을 볼수록 더 정교해지는 학생별 성장 프로파일. 강점·약점·습관·다음 학습 플랜을 한눈에.</p>
+        <span class="chip cla">Claude</span></div>
+
+      <div class="fcard reveal"><div class="ic amber">🔍</div>
+        <h3>문제 검수 (교차검증)</h3>
+        <p>출제한 문항을 AI가 정답을 모른 채 직접 풀어 정답 일치·모호성·품질을 점검. 출제 신뢰도를 한 단계 더.</p>
+        <span class="chip cla">Claude</span></div>
+
+      <div class="fcard reveal"><div class="ic navy">👩‍🏫</div>
+        <h3>수업용 보기 · 오답노트</h3>
+        <p>한 문제씩 전체화면으로 띄우는 수업 모드(교사용 팁 분리), 학생별 오답을 모은 인쇄용 오답노트까지.</p>
+        <span class="chip">수업 도구</span></div>
+
+      <div class="fcard reveal"><div class="ic rose">🗂️</div>
+        <h3>학생·시험지 관리</h3>
+        <p>학생 검색·정렬, 출제 보관함, 시험지 회차 자동 번호. 모든 기록이 안전하게 저장되어 언제든 다시 열람.</p>
+        <span class="chip">올인원</span></div>
+    </div>
+  </div>
+</section>
+
+<!-- FLOW -->
+<section class="block" id="flow" style="background:#fff;border-top:1px solid var(--line);border-bottom:1px solid var(--line)">
+  <div class="wrap">
+    <div class="sec-head reveal">
+      <span class="eyebrow"><span class="rule"></span>HOW IT WORKS</span>
+      <h2>출제부터 분석까지, 4단계면 끝</h2>
+      <p>복잡한 세팅 없이 — 클릭 몇 번으로 한 수업 사이클이 완성됩니다.</p>
+    </div>
+    <div class="flow">
+      <div class="step reveal"><div class="n"></div><h4>문제 출제</h4><p>영역·유형·난이도·문항 수를 고르면 AI가 적응형 2모듈 실전 시험지를 생성합니다.</p></div>
+      <div class="step reveal"><div class="n"></div><h4>링크 공유</h4><p>자동 생성된 응시 링크를 학생에게 전달. 학생은 이름만 고르고 바로 시험을 봅니다.</p></div>
+      <div class="step reveal"><div class="n"></div><h4>자동 채점·진단</h4><p>제출 즉시 채점되고, AI가 오답을 분석해 약점 리포트를 만들어 둡니다.</p></div>
+      <div class="step reveal"><div class="n"></div><h4>맞춤 보강</h4><p>진단 결과로 약점 기반 시험지를 다시 출제. 누적될수록 분석이 정교해집니다.</p></div>
+    </div>
+  </div>
+</section>
+
+<!-- AI DIAGNOSIS HIGHLIGHT -->
+<section class="block" id="ai">
+  <div class="wrap split">
+    <div class="vis reveal">
+      <h4>🧠 오답 진단 리포트</h4>
+      <p class="cap">민지 · Reading & Writing · 38/54</p>
+      <div class="row"><span>추론 (Inferences)</span><span class="pill pill-dn">약점 ×4</span></div>
+      <div class="row"><span>어휘/문맥</span><span class="pill pill-up">강점</span></div>
+      <div class="row"><span>핵심 근거 찾기</span><span class="pill pill-dn">보강 ×2</span></div>
+      <div class="row"><span>문법 규칙</span><span class="pill pill-up">강점</span></div>
+      <div class="row"><span>교사용 코멘트</span><span class="v">선지 함정 훈련 우선</span></div>
+    </div>
+    <div>
+      <span class="eyebrow"><span class="rule"></span>AI DIAGNOSIS</span>
+      <h2 style="font-size:30px;font-weight:900;color:var(--ink);letter-spacing:-.02em;margin:12px 0 8px">
+        ‘틀렸다’가 아니라 <span style="color:var(--teal)">‘왜 틀렸나’</span>를 봅니다.</h2>
+      <p style="font-size:16px;color:var(--ink2);margin:0">단순 채점을 넘어, 학생의 사고 과정을 추적해 진짜 약점을 짚어냅니다.</p>
+      <ul>
+        <li><span class="ck">✓</span><div><b>오답 선택 배경</b> — 학생이 그 오답을 매력적으로 느낀 이유를 추정</div></li>
+        <li><span class="ck">✓</span><div><b>출제자 함정 의도</b> — 어떤 의도로 그 선지를 깔았는지 해설</div></li>
+        <li><span class="ck">✓</span><div><b>오답 유형 분류</b> — 추론·근거·어휘·계산 실수 등으로 패턴화</div></li>
+        <li><span class="ck">✓</span><div><b>교사용 수업 포인트</b> — 이 학생을 가르칠 때 강조할 핵심을 제안</div></li>
+      </ul>
+    </div>
+  </div>
+</section>
+
+<!-- ONLINE EXAM HIGHLIGHT -->
+<section class="block" id="online" style="background:#fff;border-top:1px solid var(--line)">
+  <div class="wrap split rev">
+    <div class="vis reveal" style="background:linear-gradient(160deg,#1e293b,#0f766e)">
+      <h4>🖥️ 실전 응시 환경</h4>
+      <p class="cap">Module 1 of 2 · 남은 시간 21:34</p>
+      <div class="row"><span>Bluebook 스타일 UI</span><span class="v">✓</span></div>
+      <div class="row"><span>Desmos 계산기 내장</span><span class="v">✓</span></div>
+      <div class="row"><span>수학 레퍼런스 시트</span><span class="v">✓</span></div>
+      <div class="row"><span>적응형 모듈 라우팅</span><span class="v">✓</span></div>
+      <div class="row"><span>제출 → 자동 채점·진단</span><span class="pill pill-up">즉시</span></div>
+    </div>
+    <div>
+      <span class="eyebrow"><span class="rule"></span>ONLINE TESTING</span>
+      <h2 style="font-size:30px;font-weight:900;color:var(--ink);letter-spacing:-.02em;margin:12px 0 8px">
+        교실 밖에서도 <span style="color:var(--teal)">실제 시험처럼.</span></h2>
+      <p style="font-size:16px;color:var(--ink2);margin:0">링크 하나면 충분합니다. 학생은 등록된 이름만 고르고, 진짜 Digital SAT와 같은 화면에서 응시합니다.</p>
+      <ul>
+        <li><span class="ck">✓</span><div>실제 College Board <b>Bluebook</b>과 동일한 응시 화면</div></li>
+        <li><span class="ck">✓</span><div>모듈1 성취도에 따라 모듈2 난이도가 <b>자동 분기</b> (기준 점수 조절 가능)</div></li>
+        <li><span class="ck">✓</span><div>제출 즉시 <b>채점 + AI 진단</b>이 교사 화면으로 전송</div></li>
+        <li><span class="ck">✓</span><div>학생에게는 정답·해설을 보여주되, <b>점수는 교사가 관리</b></div></li>
+      </ul>
+    </div>
+  </div>
+</section>
+
+<!-- CTA -->
+<section class="block">
+  <div class="wrap">
+    <div class="cta-block reveal">
+      <span class="eyebrow" style="color:#5eead4"><span class="rule" style="background:#5eead4"></span>GET STARTED</span>
+      <h2>오늘 수업부터, IMSAT와 함께.</h2>
+      <p>출제·진단·응시·분석을 한 곳에서. 설치 없이 브라우저에서 바로 시작하세요.</p>
+      <div style="display:flex;gap:12px;justify-content:center;flex-wrap:wrap">
+        <a class="btn btn-light" href="index.html">IMSAT 시작하기 →</a>
+        <a class="btn btn-out" href="#features">기능 다시 보기</a>
+      </div>
+    </div>
+  </div>
+</section>
+
+<footer>
+  <div class="wrap">
+    <a class="brand" href="#top"><span class="mark">IM</span>IMSAT</a>
+    <div>© 2026 INTO유학센터 · AI 기반 SAT 진단·출제 플랫폼</div>
+  </div>
+</footer>
+
+<script>
+  // scroll reveal
+  const io=new IntersectionObserver((es)=>{es.forEach(e=>{if(e.isIntersecting){e.target.classList.add('in');io.unobserve(e.target);}})},{threshold:.12});
+  document.querySelectorAll('.reveal').forEach((el,i)=>{el.style.transitionDelay=(Math.min(i%4,3)*60)+'ms';io.observe(el);});
+</script>
+</body>
+</html>
