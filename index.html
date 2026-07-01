@@ -2225,7 +2225,8 @@ ${genreHint?(genreHint+"\n"):""}${sectionSpec}
 ${avoidText?("\n[중복 금지 — 매우 중요] 아래는 이미 출제된 문항들의 발문 일부입니다. 이들과 지문·소재·상황·숫자·정답 시나리오가 절대 겹치지 않도록, 전혀 다른 새 문제만 만드세요. 같은 주제·소재를 살짝 바꾼 변형도 금지:\n- "+avoidText+"\n"):""}
 [이 묶음 내부 중복 금지] 이번에 만드는 ${count}문항끼리도 서로 지문 소재·주제·상황·등장인물·핵심 숫자가 겹치면 안 됩니다. 각 문항이 완전히 다른 소재여야 합니다.
 [그림/도표 — 절대 ASCII로 그리지 말 것]
-- 그림이 필요한 문항(좌표평면의 그래프·포물선·직선, 산점도, 막대/선 그래프, 도형·각도·삼각형, 수직선 등)은 "figure" 필드에 **깔끔한 SVG 코드**를 넣으세요. ASCII 아트("----/----" 같은 것) 금지.
+- 실제 Digital SAT Math는 그림 있는 문항이 많습니다. 이번 묶음의 **약 30~40%(3문항 중 최소 1문항)**는 그림이 필요한 유형으로 내고 "figure"에 SVG를 넣으세요: 좌표평면 그래프(직선·포물선·함수), 산점도+추세선, 막대/선 그래프, 기하 도형(삼각형·원·각도·평행선), 수직선, 표 등. 특히 Geometry·Data Analysis 유형은 대부분 그림 동반.
+- 그림이 필요한 문항은 "figure" 필드에 **깔끔한 SVG 코드**를 넣으세요. ASCII 아트("----/----" 같은 것) 금지.
 - SVG 규칙: 반드시 <svg ...>로 시작하고 viewBox 포함(예: viewBox='0 0 360 280'). **모든 속성값은 작은따옴표(')로 감싸세요**(JSON 깨짐 방지 — SVG 안에서 큰따옴표 " 사용 금지). 배경 흰색, 선은 검정(stroke='#111'), 좌표평면이면 격자(옅은 회색 #ccc)·x/y축·화살표·눈금 숫자 라벨을 그려 실제 SAT처럼. 포물선/곡선은 <path> 또는 촘촘한 <polyline>으로. 점은 <circle r='3'>. 텍스트 라벨은 <text font-size='12'>.
 - 외부 리소스·<script>·이벤트 속성 금지. 자체 완결형 정적 SVG만.
 - 그림이 필요 없는 문항은 "figure"를 빈 문자열로 두세요. stem에서 그림을 가리킬 때 "the graph shown"/"the figure" 등 실제 SAT 표현 사용.
@@ -3343,6 +3344,9 @@ async function startExam(token, presetSid, reviewMode){
     const info = await res.json();
     if(info.error) throw new Error(info.error);
     EX.info = info; EX.qs = info.questions||[];
+    // 수학 판별: section/secLabel 뿐 아니라 문항 특성(grid-in·수식)으로도 확정
+    EX.isMath = (info.section==='math') || /math/i.test(info.secLabel||"")
+      || (info.questions||[]).some(q=> q.format==='grid' || /\\\(|\\\[|\$\$|\\frac|\\sqrt/.test(q.stem||"") );
     // 배부로 연 경우: 이름 이미 확정 / 결과보기면 바로 결과
     if(presetSid && reviewMode){ await showAssignedResult(presetSid); return; }
     renderExamIntro();
@@ -3376,7 +3380,7 @@ function renderExamIntro(){
       <div class="ey" style="color:var(--amber);font-size:11px;letter-spacing:.16em;text-transform:uppercase;margin-bottom:6px">IMSAT · Practice Test</div>
       <h2 style="margin:0 0 6px;font-size:22px;color:var(--ink)">${esc(i.title||"IMSAT 모의고사")}</h2>
       <p class="muted" style="margin:0 0 18px">${esc(i.secLabel)} · ${i.adaptive
-        ? ('적응형 2모듈 · 모듈당 '+(i.m1Count||'')+'문항 · 각 모듈 '+Math.round(examModuleSec(i.section)/60)+'분')
+        ? ('적응형 2모듈 · 모듈당 '+(i.m1Count||'')+'문항 · 각 모듈 '+Math.round(examModuleSec()/60)+'분')
         : ((i.count||0)+'문항 · 제한시간 '+Math.round((i.timeLimitSec||0)/60)+'분')}</p>
       ${namePart}
       <div id="examIntroErr"></div>
@@ -3415,12 +3419,12 @@ function beginExam(){
   EX.adaptive=!!EX.info.adaptive; EX.module=1; EX.m1AnswersArr=null; EX.route=null;
   EX.timerHidden=false; EX.calcOpen=false;
   resetModuleState();
-  startModuleTimer( EX.adaptive ? examModuleSec(EX.info.section) : EX.info.timeLimitSec );
+  startModuleTimer( EX.adaptive ? examModuleSec() : EX.info.timeLimitSec );
   renderExamShell();
   renderExamQuestion();
 }
-// 실전 Digital SAT 모듈 제한시간 (클라이언트 기준 — 서버 재배포 없이 확정)
-function examModuleSec(section){ return section==='math' ? 2100 : 1920; }  // Math 35분 / R&W 32분
+// 실전 Digital SAT 모듈 제한시간 (클라이언트 기준·수학 판별로 확정) Math 35분 / R&W 32분
+function examModuleSec(){ return EX.isMath ? 2100 : 1920; }
 function resetModuleState(){ EX.answers={}; EX.marks={}; EX.elim={}; EX.idx=0; EX.elimMode=false; }
 function collectAnswers(){ return EX.qs.map((q,i)=>EX.answers[i]!==undefined?String(EX.answers[i]):""); }
 function startModuleTimer(sec){
@@ -3446,7 +3450,7 @@ async function finishModule1(auto){
     const res=await fetch(TEST_URL,{ method:"POST", headers:{ "Content-Type":"application/json", "apikey":SUPABASE_ANON, "Authorization":"Bearer "+SUPABASE_ANON },
       body:JSON.stringify({ action:"module2", token:EX.token, studentId:EX.studentId, m1Answers:EX.m1AnswersArr }) });
     const out=await res.json(); if(out.error) throw new Error(out.error);
-    EX.route=out.route; EX.m2qs=out.questions||[]; EX.moduleTimeSec=examModuleSec(EX.info.section);
+    EX.route=out.route; EX.m2qs=out.questions||[]; EX.moduleTimeSec=examModuleSec();
     showModuleBreak();
   }catch(e){ root.innerHTML='<div class="exam-card"><div class="err">모듈 전환 실패<br><span class="muted">'+esc(String(e.message||e))+'</span></div></div>'; }
 }
@@ -3467,7 +3471,7 @@ function startModule2(){
 }
 
 function renderExamShell(){
-  const isMath = EX.info.section==='math';
+  const isMath = EX.isMath;
   const seqM=(EX.info.title||"").match(/#\s*(\d+)/); const seqS=seqM?(" #"+seqM[1]):"";
   const dispTitle="IMSAT "+(EX.info.secLabel||"")+(EX.adaptive?" 적응형 모의고사":" 실전 모의 문항")+seqS;
   document.getElementById("view-exam").innerHTML = `
