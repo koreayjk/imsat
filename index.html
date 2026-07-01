@@ -1339,8 +1339,10 @@ async function deleteStudent(id, name){
     await sb.from("diagnostics").delete().eq("student_id", id);
     try{ await sb.from("test_attempts").delete().eq("student_id", id); }catch(_e){}
     try{ await sb.from("problem_sets").update({ student_id:null }).eq("student_id", id); }catch(_e){}
-    const { error } = await sb.from("students").delete().eq("id", id);
+    try{ await sb.from("assignments").delete().eq("student_id", id); }catch(_e){}
+    const { data:del, error } = await sb.from("students").delete().eq("id", id).select("id");
     if(error) throw new Error(error.message);
+    if(!del || !del.length){ alert("삭제되지 않았습니다. 권한 문제일 수 있어요(다른 선생님이 등록한 학생이거나, 단체 권한 SQL 미실행). supabase_step_portal.sql 의 최신본을 실행했는지 확인해 주세요."); return; }
     if(currentStudent && currentStudent.id===id) currentStudent=null;
     showDashboard();
   }catch(e){ alert("삭제 실패: "+(e.message||e)); }
@@ -3226,13 +3228,15 @@ async function submitJoinCode(){
 }
 
 // ---------- 학생 포털 ----------
-let myStudent = null;
+let myStudent = null, myEmail = "";
 async function enterStudentPortal(session){
   document.body.classList.add("student-mode");
+  myEmail = (session.user && session.user.email) || "";
   VIEWS.concat(["exam","present"]).forEach(v=>{ const el=document.getElementById("view-"+v); if(el) el.classList.add("hide"); });
   const v=document.getElementById("view-portal"); v.classList.remove("hide");
   v.innerHTML='<div class="loading"><div class="spinner"></div>불러오는 중…</div>';
   try{
+    myProfile = await fetchProfile(session);
     const { data:st } = await sb.from("students").select("*").eq("auth_user_id", session.user.id).maybeSingle();
     if(!st){ showOnboarding(session); return; }
     myStudent = st;
@@ -3272,7 +3276,40 @@ function renderStudentPortal(st, assignments, attempts){
       <h2>${esc(st.name)}님, 안녕하세요</h2>
       <p>배부된 시험을 풀고, 지난 점수와 해설을 언제든 다시 볼 수 있어요.</p>
     </div></div>
-    <div class="card"><h3 style="margin:0 0 12px">📝 내 시험</h3><div class="pt-list">${asgHtml}</div></div>`;
+    <div class="card"><h3 style="margin:0 0 12px">📝 내 시험</h3><div class="pt-list">${asgHtml}</div></div>
+    <div class="card">
+      <h3 style="margin:0 0 4px">👤 내 정보</h3>
+      <div class="muted" style="font-size:12.5px;margin-bottom:12px">이메일(로그인 아이디)은 바꿀 수 없어요. 나머지는 수정 후 저장하세요.</div>
+      <label class="fld">이메일 (변경 불가)</label>
+      <input value="${esc(myEmail)}" disabled style="background:#f1f5f9;color:var(--mut)" />
+      <label class="fld" style="margin-top:10px">이름</label>
+      <input id="stName" value="${esc((myProfile&&myProfile.display_name)||st.name||'')}" />
+      <div class="grid2" style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:10px">
+        <div><label class="fld">학교</label><input id="stSchool" value="${esc((myProfile&&myProfile.school)||'')}" placeholder="예: OO고등학교" /></div>
+        <div><label class="fld">학년</label><input id="stGrade" value="${esc((myProfile&&myProfile.grade)||'')}" placeholder="예: 11학년" /></div>
+      </div>
+      <label class="fld" style="margin-top:10px">전화번호</label>
+      <input id="stPhone" value="${esc((myProfile&&myProfile.phone)||'')}" placeholder="예: 010-0000-0000" />
+      <div id="stInfoMsg" style="margin-top:10px"></div>
+      <button class="btn btn-primary" style="margin-top:10px;width:auto;padding:9px 18px" onclick="saveStudentInfo()">저장</button>
+    </div>`;
+}
+async function saveStudentInfo(){
+  const name=(document.getElementById("stName").value||"").trim();
+  const school=(document.getElementById("stSchool").value||"").trim();
+  const grade=(document.getElementById("stGrade").value||"").trim();
+  const phone=(document.getElementById("stPhone").value||"").trim();
+  const msg=document.getElementById("stInfoMsg");
+  if(!name){ msg.innerHTML='<div class="err">이름을 입력하세요.</div>'; return; }
+  msg.innerHTML='<div class="muted" style="font-size:13px">저장 중…</div>';
+  try{
+    const { data, error } = await sb.rpc("update_student_profile", { p_name:name, p_phone:phone, p_school:school, p_grade:grade });
+    if(error) throw new Error(error.message);
+    if(data && data.ok===false) throw new Error(data.error||"저장 실패");
+    msg.innerHTML='<div class="card" style="background:var(--teal-bg);border-color:#99f6e4;color:#0f766e;font-size:13px;padding:10px 12px;margin:0">✅ 저장했습니다.</div>';
+    if(myProfile){ myProfile.display_name=name; myProfile.school=school; myProfile.grade=grade; myProfile.phone=phone; }
+    if(myStudent) myStudent.name=name;
+  }catch(e){ msg.innerHTML='<div class="err">저장 실패: '+esc(String(e.message||e))+'</div>'; }
 }
 function portalStartExam(token){
   if(!token || !myStudent){ alert("이 시험은 링크 정보가 없어 응시할 수 없습니다. 선생님께 문의하세요."); return; }

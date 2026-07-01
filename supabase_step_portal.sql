@@ -128,6 +128,33 @@ alter table imsat.assignments add column if not exists share_token text;
 alter table imsat.assignments add column if not exists title text;
 alter table imsat.assignments add column if not exists section text;
 
+-- 11) 같은 단체 선생님은 단체 학생을 관리(수정·삭제)까지 가능하게 ----------
+--     (org 공유 후 다른 선생님이 등록한 학생 삭제가 막히던 문제 해결)
+drop policy if exists imsat_students_own on imsat.students;
+create policy imsat_students_own on imsat.students
+  for all to authenticated
+  using (teacher_id = auth.uid() or (imsat.my_role()='teacher' and org_id = imsat.my_org()))
+  with check (teacher_id = auth.uid() or (imsat.my_role()='teacher' and org_id = imsat.my_org()));
+
+-- 12) 학생 자기정보 수정용 컬럼 + RPC (이메일은 제외) ------------------
+alter table imsat.profiles add column if not exists phone  text;
+alter table imsat.profiles add column if not exists school text;
+alter table imsat.profiles add column if not exists grade  text;
+
+create or replace function imsat.update_student_profile(p_name text, p_phone text, p_school text, p_grade text)
+returns jsonb language plpgsql security definer set search_path = imsat as $$
+begin
+  update imsat.profiles
+     set display_name = coalesce(nullif(trim(p_name),''), display_name),
+         phone = p_phone, school = p_school, grade = p_grade
+   where user_id = auth.uid();
+  if nullif(trim(p_name),'') is not null then
+    update imsat.students set name = trim(p_name) where auth_user_id = auth.uid();
+  end if;
+  return jsonb_build_object('ok', true);
+end $$;
+grant execute on function imsat.update_student_profile(text,text,text,text) to authenticated;
+
 -- 완료. 확인:
 --   select role, count(*) from imsat.profiles group by role;   -- teacher 2
 --   select name, join_code from imsat.students;
