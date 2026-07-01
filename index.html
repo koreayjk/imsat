@@ -617,14 +617,17 @@
     -webkit-tap-highlight-color:rgba(217,119,6,.3);touch-action:manipulation}
   #sbToggleOpen:active{background:#f8fafc;transform:scale(.94)}
   #sidebar{transition:transform .22s ease}
-  /* ===== 모바일(<1024px) 네비게이션: 햄버거 + 슬라이드 드로어 ===== */
-  body.authed #sbToggleOpen{display:flex}                 /* 모바일: 메뉴 버튼 항상 표시 */
-  body.authed #sidebar{display:flex;transform:translateX(-100%)}  /* 모바일: 기본 숨김(왼쪽 밖) */
-  body.authed.sb-open #sidebar{transform:translateX(0)}   /* 열기 */
-  body.authed.sb-open #sbToggleOpen{display:none}         /* 열렸을 땐 햄버거 숨김(브랜드와 겹침 방지) */
   #sbBackdrop{display:none;position:fixed;inset:0;background:rgba(15,23,42,.45);z-index:160}
-  body.authed.sb-open #sbBackdrop{display:block}
-  body.exam-mode #sbBackdrop, body.present-mode #sbBackdrop{display:none!important}
+  /* ===== 모바일(<1024px) 전용 네비게이션: 햄버거 + 슬라이드 드로어 =====
+     반드시 max-width로 감싸야 데스크톱(≥1024px) 사이드바 규칙을 덮어쓰지 않음 */
+  @media (max-width:1023px){
+    body.authed #sbToggleOpen{display:flex}                 /* 모바일: 메뉴 버튼 항상 표시 */
+    body.authed #sidebar{display:flex;transform:translateX(-100%)}  /* 모바일: 기본 숨김(왼쪽 밖) */
+    body.authed.sb-open #sidebar{transform:translateX(0)}   /* 열기 */
+    body.authed.sb-open #sbToggleOpen{display:none}         /* 열렸을 땐 햄버거 숨김 */
+    body.authed.sb-open #sbBackdrop{display:block}
+    body.exam-mode #sbBackdrop, body.present-mode #sbBackdrop{display:none!important}
+  }
 
   /* 학생 상세 2단 (모바일은 그냥 세로 스택) */
   .stu-detail-grid{display:block}
