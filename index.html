@@ -2033,6 +2033,8 @@ let paperReturn = null;    // 시험지 화면에서 "돌아가기" 동작
 document.querySelectorAll("#genSectionSeg button").forEach(b=>b.addEventListener("click",()=>{
   genSection=b.dataset.sec; genTopics=[];
   document.querySelectorAll("#genSectionSeg button").forEach(x=>x.classList.toggle("on",x===b));
+  // 영역에 맞는 실전 풀세트 문항 수로 자동 설정 (수학 44=22+22, R&W 54=27+27)
+  document.getElementById("genCount").value = (genSection==='math') ? 44 : 54;
   renderGenTopics();
   updateGenCountHint();
 }));
