@@ -643,6 +643,9 @@
     border:1px solid #99f6e4;border-radius:7px;padding:3px 8px;cursor:pointer;white-space:nowrap}
   .asg-code:hover{background:#ccfbf1}
   .asg-row .pill{flex:0 0 auto}
+  /* 수학 자동 검증: 불일치 문항 강조 */
+  .paper-q.q-flagged{border:2px solid #f43f5e;border-radius:10px;background:#fff1f2;padding-left:12px;padding-right:12px}
+  .pq-flag{font-size:11px;font-weight:800;color:#be123c;background:#ffe4e6;border:1px solid #fecdd3;border-radius:999px;padding:3px 9px}
   /* 문항 그림(SVG) */
   .q-figure{margin:12px 0;text-align:center}
   .q-figure svg{max-width:100%;height:auto;max-height:340px;border:1px solid var(--line);border-radius:8px;background:#fff;padding:6px}
@@ -2517,6 +2520,7 @@ async function generateAdaptive(){
     navOrigin = genStudent ? "student" : "generate";
     renderPaper();
     show("paper");
+    if(genSection==='math') autoVerifyMath(currentPaper);   // 수학: 정답 자동 검증(백그라운드)
   }catch(e){
     errBox.innerHTML='<div class="err">적응형 생성에 실패했습니다.<br><span class="muted">'+esc(String(e.message||e))+'</span></div>';
   }finally{
@@ -2570,12 +2574,13 @@ function renderPaper(){
     const distr=q.distractors||{};
     const distrHtml=isGrid ? "" : ["A","B","C","D"].filter(c=>c!==ans && distr[c]).map(c=>`<div><b>${c})</b> ${esc(distr[c])}</div>`).join("");
     const ansLabel=isGrid ? esc(String(q.answer||"-")) : (esc(ans||"-"));
-    return `<div class="paper-q">
+    return `<div class="paper-q${q._flag?' q-flagged':''}">
       <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
         <span class="pq-num">${esc(String(n))}</span>
         ${q.skill?`<span class="pq-skill">${esc(q.skill)}</span>`:""}
         ${isGrid?`<span class="pq-skill" style="color:#b45309;background:var(--amber-bg)">grid-in</span>`:""}
         ${q.difficulty?`<span class="muted" style="font-size:11px">${esc(DIFF_LABEL[q.difficulty]||q.difficulty)}</span>`:""}
+        ${q._flag?`<span class="pq-flag no-print">⚠️ 정답 불일치 (AI 풀이: ${esc(String(q._claudeAns||'?'))})</span>`:""}
       </div>
       ${q.passage&&String(q.passage).trim()?`<div class="pq-passage">${esc(q.passage)}</div>`:""}
       ${figureHtml(q)}
@@ -2606,6 +2611,7 @@ function renderPaper(){
       <button class="btn btn-primary" style="flex:0 0 auto;width:auto;padding:9px 16px" onclick="openAssign()">📤 학생에게 배부</button>
     </div>
     <div id="assignBox" class="no-print"></div>
+    ${autoVerifyBanner()}
     <div id="shareBox" class="no-print"></div>
     ${warn}
     <div class="paper" id="paperEl">
@@ -2660,6 +2666,46 @@ function qaMatch(q, claudeAns){
     return stored.toUpperCase().replace(/\s+/g,"")===String(claudeAns||"").toUpperCase().replace(/\s+/g,"");
   }
   return stored.toUpperCase()===String(claudeAns||"").trim().toUpperCase();
+}
+// ---------- 수학 정답 자동 검증 (출제 직후 백그라운드) ----------
+let paperVerifyState = null;   // null | 'running' | 'done'
+function autoVerifyBanner(){
+  if(!currentPaper || currentPaper.section!=='math') return "";
+  if(paperVerifyState==='running')
+    return '<div class="config-warn no-print" style="background:#eff6ff;border-color:#bfdbfe;color:#1e40af">🔎 정답 자동 검증 중… (Claude가 각 문항을 직접 풀어 확인합니다. 잠시만요)</div>';
+  if(paperVerifyState==='done'){
+    const flagged=(currentPaper.questions||[]).filter(q=>q._flag).length;
+    if(flagged>0)
+      return '<div class="config-warn no-print">⚠️ <b>'+flagged+'문항</b>에서 AI 재풀이 정답이 시험지 정답과 <b>다릅니다</b>. 아래 <b>빨간 테두리</b> 문항을 확인하고 <b>🔄 비슷하게 새 문제</b>로 교체하세요. (문항 옆에 AI가 푼 답 표시)</div>';
+    return '<div class="config-warn no-print" style="background:var(--teal-bg);border-color:#99f6e4;color:#0f766e">✅ 정답 자동 검증 완료 — 모든 문항의 정답이 일치합니다.</div>';
+  }
+  return "";
+}
+async function autoVerifyMath(paper){
+  if(!paper || paper.section!=='math' || !(paper.questions||[]).length) return;
+  paperVerifyState='running';
+  paper.questions.forEach(q=>{ delete q._flag; delete q._claudeAns; });
+  if(currentPaper===paper) renderPaper();   // "검증 중" 배너 표시
+  const qs=paper.questions, BATCH=6, batches=[];
+  for(let i=0;i<qs.length;i+=BATCH) batches.push(qs.slice(i,i+BATCH).map((q,j)=>({q,vid:i+j})));
+  const results={};
+  try{
+    for(const items of batches){
+      const body=items.map(it=>`[문항 vid=${it.vid}]\n${qaQText(it.q)}`).join("\n\n---\n\n");
+      const prompt=`아래 SAT Math 문항들을 직접 끝까지 풀어 정답만 구하세요. 객관식이면 A/B/C/D 한 글자, grid-in이면 숫자/분수. 확신이 없으면 "?"로.\n\n${body}\n\n아래 JSON만 출력(백틱·설명 금지): {"results":[{"vid":0,"answer":"A"}]}`;
+      const res=await fetch(ANALYZE_URL,{ method:"POST", headers:await fnHeaders(),
+        body:JSON.stringify({ max_tokens:Math.min(4000, 350*items.length+800), messages:[{role:"user",content:[{type:"text",text:prompt}]}] }) });
+      const out=await res.json().catch(()=>({error:1}));
+      if(out.error) continue;
+      const parsed=parseModelJSON(out.text||"");
+      (parsed&&parsed.results||[]).forEach(r=>{ if(r&&r.vid!=null) results[r.vid]=r; });
+    }
+  }catch(_e){}
+  qs.forEach((q,idx)=>{ const r=results[idx];
+    if(r && r.answer && r.answer!=='?' && !qaMatch(q, r.answer)){ q._flag=true; q._claudeAns=r.answer; }
+  });
+  paperVerifyState='done';
+  if(currentPaper===paper && !document.getElementById("view-paper").classList.contains("hide")) renderPaper();
 }
 let qaRefText="";  // 선생님이 붙여넣은 공식 기준 문항(선택)
 // 공식 Digital SAT 규격 루브릭 (영역별)
@@ -2930,6 +2976,7 @@ function renderLibrary(){
 }
 async function openProblemSet(id, origin){
   navOrigin = origin || "library";
+  paperVerifyState = null;   // 저장된 시험지 열 땐 검증 배너 초기화
   show("paper");
   document.getElementById("view-paper").innerHTML='<div class="loading"><div class="spinner"></div>시험지 불러오는 중…</div>';
   const { data, error } = await sb.from("problem_sets").select("*").eq("id",id).single();
@@ -3328,7 +3375,9 @@ function renderExamIntro(){
     <div class="exam-card">
       <div class="ey" style="color:var(--amber);font-size:11px;letter-spacing:.16em;text-transform:uppercase;margin-bottom:6px">IMSAT · Practice Test</div>
       <h2 style="margin:0 0 6px;font-size:22px;color:var(--ink)">${esc(i.title||"IMSAT 모의고사")}</h2>
-      <p class="muted" style="margin:0 0 18px">${esc(i.secLabel)} · ${i.count}문항 · 제한시간 ${Math.round(i.timeLimitSec/60)}분</p>
+      <p class="muted" style="margin:0 0 18px">${esc(i.secLabel)} · ${i.adaptive
+        ? ('적응형 2모듈 · 모듈당 '+(i.m1Count||'')+'문항 · 각 모듈 '+Math.round(examModuleSec(i.section)/60)+'분')
+        : ((i.count||0)+'문항 · 제한시간 '+Math.round((i.timeLimitSec||0)/60)+'분')}</p>
       ${namePart}
       <div id="examIntroErr"></div>
       <ul class="muted" style="font-size:13px;line-height:1.7;margin:16px 0 18px;padding-left:18px">
@@ -3366,10 +3415,12 @@ function beginExam(){
   EX.adaptive=!!EX.info.adaptive; EX.module=1; EX.m1AnswersArr=null; EX.route=null;
   EX.timerHidden=false; EX.calcOpen=false;
   resetModuleState();
-  startModuleTimer( EX.adaptive ? EX.info.moduleTimeSec : EX.info.timeLimitSec );
+  startModuleTimer( EX.adaptive ? examModuleSec(EX.info.section) : EX.info.timeLimitSec );
   renderExamShell();
   renderExamQuestion();
 }
+// 실전 Digital SAT 모듈 제한시간 (클라이언트 기준 — 서버 재배포 없이 확정)
+function examModuleSec(section){ return section==='math' ? 2100 : 1920; }  // Math 35분 / R&W 32분
 function resetModuleState(){ EX.answers={}; EX.marks={}; EX.elim={}; EX.idx=0; EX.elimMode=false; }
 function collectAnswers(){ return EX.qs.map((q,i)=>EX.answers[i]!==undefined?String(EX.answers[i]):""); }
 function startModuleTimer(sec){
@@ -3395,7 +3446,7 @@ async function finishModule1(auto){
     const res=await fetch(TEST_URL,{ method:"POST", headers:{ "Content-Type":"application/json", "apikey":SUPABASE_ANON, "Authorization":"Bearer "+SUPABASE_ANON },
       body:JSON.stringify({ action:"module2", token:EX.token, studentId:EX.studentId, m1Answers:EX.m1AnswersArr }) });
     const out=await res.json(); if(out.error) throw new Error(out.error);
-    EX.route=out.route; EX.m2qs=out.questions||[]; EX.moduleTimeSec=out.moduleTimeSec;
+    EX.route=out.route; EX.m2qs=out.questions||[]; EX.moduleTimeSec=examModuleSec(EX.info.section);
     showModuleBreak();
   }catch(e){ root.innerHTML='<div class="exam-card"><div class="err">모듈 전환 실패<br><span class="muted">'+esc(String(e.message||e))+'</span></div></div>'; }
 }
