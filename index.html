@@ -2003,6 +2003,7 @@ const DIFF_LABEL = { easy:"Easy", medium:"Medium", hard:"Hard", mixed:"혼합" }
 let genSection = "rw";
 let genTopics = [];
 let genDifficulty = "medium";
+let genPreferClaude = false;  // 이번 생성 세션에서 Gemini 과부하 감지 시 Claude로 고정
 let genStudent = null;     // {id,name} 또는 null(일반 출제)
 let genWeakNote = "";
 let currentPaper = null;   // {title,section,difficulty,topics,questions,studentName,savedId}
@@ -2261,13 +2262,14 @@ async function runGeneration(opts, btn){
     const avoidText = avoid.length ? avoid.slice(-60).join("\n- ") : "";
     const prompt=buildGenPrompt(secLabel, topicStr, bn, diffLabel, vnote, weakNote, avoidText, genreHint);
     // 서버 과부하(500·"high demand")·네트워크·파싱 실패 시 백오프 재시도
-    // Gemini로 3번 시도 후에도 실패하면 마지막엔 Claude로 폴백(task:generate 빼면 서버가 Claude로 라우팅)
+    // Gemini 과부하가 감지되면 즉시 Claude로 전환하고, 이후 묶음도 계속 Claude 사용(task:generate 빼면 서버가 Claude로 라우팅)
     let data=null, lastRaw="", lastErr="";
-    for(let attempt=0; attempt<4 && !data; attempt++){
-      const useClaude = attempt===3;  // 마지막 시도는 다른 AI(Claude)로
+    for(let attempt=0; attempt<5 && !data; attempt++){
+      // 이미 Gemini가 죽은 걸 알면 처음부터 Claude / 아니면 2번 실패 후 Claude
+      const useClaude = genPreferClaude || attempt>=2;
       if(attempt>0){
-        if(btn) btn.textContent=(opts.phaseLabel?opts.phaseLabel+" · ":"")+(useClaude?"다른 AI로 재시도 중…":"모델 혼잡 — 재시도 중… ("+attempt+")");
-        await new Promise(r=>setTimeout(r, 1000*Math.pow(2,attempt-1)));  // 1s,2s,4s
+        if(btn) btn.textContent=(opts.phaseLabel?opts.phaseLabel+" · ":"")+(useClaude?"다른 AI로 생성 중…":"모델 혼잡 — 재시도 중… ("+attempt+")");
+        await new Promise(r=>setTimeout(r, 1000*Math.pow(2,Math.min(attempt-1,3))));  // 1s,2s,4s,8s
       }
       let out=null;
       try{
@@ -2278,7 +2280,12 @@ async function runGeneration(opts, btn){
         out=await res.json().catch(()=>({error:"HTTP "+res.status}));
         if(!res.ok && !out) out={error:"HTTP "+res.status};
       }catch(netErr){ lastErr=String(netErr&&netErr.message||netErr); continue; }  // 네트워크 → 재시도
-      if(out && out.error){ lastErr=String(out.error); continue; }                  // 과부하 등 → 재시도
+      if(out && out.error){
+        lastErr=String(out.error);
+        // 과부하/혼잡류면 이번 세션 내내 Claude로 전환
+        if(!useClaude && /high demand|overload|과부하|busy|rate|quota|429|503|500/i.test(lastErr)) genPreferClaude=true;
+        continue;
+      }
       lastRaw=(out&&out.text)||"";
       const parsed=parseModelJSON(lastRaw);
       if(parsed && Array.isArray(parsed.questions) && parsed.questions.length){ data=parsed; break; }
@@ -2304,9 +2311,9 @@ async function runGeneration(opts, btn){
     try{
       const avoidText=avoid.length?avoid.slice(-60).join("\n- "):"";
       const prompt=buildGenPrompt(secLabel, topicStr, need, diffLabel, (note||""), weakNote, avoidText, "");
-      const res=await fetch(ANALYZE_URL,{ method:"POST", headers:await fnHeaders(),
-        body:JSON.stringify({ task:"generate", max_tokens:Math.min(8000, 1100*need+1200),
-          messages:[{ role:"user", content:[{ type:"text", text:prompt }] }] }) });
+      const reqBody={ max_tokens:Math.min(8000, 1100*need+1200), messages:[{ role:"user", content:[{ type:"text", text:prompt }] }] };
+      if(!genPreferClaude) reqBody.task="generate";
+      const res=await fetch(ANALYZE_URL,{ method:"POST", headers:await fnHeaders(), body:JSON.stringify(reqBody) });
       const out=await res.json();
       const d2=out.error?null:parseModelJSON(out.text||"");
       if(d2 && Array.isArray(d2.questions)) all=all.concat(d2.questions);
@@ -2359,6 +2366,7 @@ async function generateAdaptive(){
   const note=document.getElementById("genNote").value.trim();
   const secLabel=SECTION_LABEL[genSection];
   const btn=document.getElementById("genBtn"); btn.disabled=true;
+  genPreferClaude=false;  // 매 생성마다 Gemini 우선으로 초기화
   try{
     const seq = await nextSeq(genSection);
     let avoid = await fetchAvoidStems(genSection);
