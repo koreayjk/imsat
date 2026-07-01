@@ -3481,16 +3481,36 @@ async function loadTips(idx){
 [정답] ${q.answer||""}
 [학생용 해설] ${q.explanation||""}
 순수 JSON만(백틱 금지): {"tips":["팁1","팁2","팁3"]}`;
-    const res=await fetch(ANALYZE_URL,{ method:"POST", headers:await fnHeaders(),
-      body:JSON.stringify({ task:"generate", max_tokens:800, messages:[{role:"user",content:[{type:"text",text:prompt}]}] }) });
-    const out=await res.json(); if(out.error) throw new Error(out.error);
-    const data=parseModelJSON(out.text||"");
-    const tips=(data&&Array.isArray(data.tips))?data.tips:[];
-    PRES.tips[idx]=tips;
-    const cur=document.getElementById("prTips"); if(cur && PRES.idx===idx) renderTips(cur, tips);
+    // 과부하·네트워크 실패 시 백오프 재시도 (최대 4회)
+    let data=null, lastErr="";
+    for(let attempt=0; attempt<4 && !data; attempt++){
+      if(PRES.idx!==idx) return;  // 그새 다른 문항으로 넘어가면 중단
+      if(attempt>0){
+        const cur=document.getElementById("prTips");
+        if(cur && PRES.idx===idx) cur.innerHTML='<div class="pr-tips-h">📌 선생님 전용 팁 <span>(학생에겐 안 보임)</span></div><div class="muted" style="font-size:13px;padding:6px 0">모델 혼잡 — 재시도 중… ('+attempt+'/3)</div>';
+        await new Promise(r=>setTimeout(r, 1200*Math.pow(2,attempt-1)));  // 1.2s,2.4s,4.8s
+      }
+      try{
+        const res=await fetch(ANALYZE_URL,{ method:"POST", headers:await fnHeaders(),
+          body:JSON.stringify({ task:"generate", max_tokens:800, messages:[{role:"user",content:[{type:"text",text:prompt}]}] }) });
+        const out=await res.json().catch(()=>({error:"HTTP "+res.status}));
+        if(out.error){ lastErr=String(out.error); continue; }
+        const d=parseModelJSON(out.text||"");
+        if(d && Array.isArray(d.tips)){ data=d; break; }
+        lastErr="응답 해석 실패";
+      }catch(netErr){ lastErr=String(netErr&&netErr.message||netErr); }
+    }
+    if(PRES.idx!==idx) return;
+    if(data){
+      PRES.tips[idx]=data.tips;
+      const cur=document.getElementById("prTips"); if(cur && PRES.idx===idx) renderTips(cur, data.tips);
+    } else {
+      const cur=document.getElementById("prTips");
+      if(cur && PRES.idx===idx) cur.innerHTML='<div class="pr-tips-h">📌 선생님 전용 팁</div><div class="muted" style="font-size:13px">팁 생성 실패 (모델 혼잡). '+esc(lastErr.slice(0,60))+'<br><button class="btn btn-ghost" style="width:auto;padding:6px 12px;margin-top:8px" onclick="loadTips('+idx+')">🔄 다시 시도</button></div>';
+    }
   }catch(e){
     const cur=document.getElementById("prTips");
-    if(cur && PRES.idx===idx) cur.innerHTML='<div class="pr-tips-h">📌 선생님 전용 팁</div><div class="muted" style="font-size:13px">팁 생성 실패: '+esc(String(e.message||e))+'</div>';
+    if(cur && PRES.idx===idx) cur.innerHTML='<div class="pr-tips-h">📌 선생님 전용 팁</div><div class="muted" style="font-size:13px">팁 생성 실패: '+esc(String(e.message||e))+'<br><button class="btn btn-ghost" style="width:auto;padding:6px 12px;margin-top:8px" onclick="loadTips('+idx+')">🔄 다시 시도</button></div>';
   }
 }
 function renderTips(box, tips){
