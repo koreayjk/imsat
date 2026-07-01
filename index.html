@@ -643,6 +643,10 @@
     border:1px solid #99f6e4;border-radius:7px;padding:3px 8px;cursor:pointer;white-space:nowrap}
   .asg-code:hover{background:#ccfbf1}
   .asg-row .pill{flex:0 0 auto}
+  /* 문항 그림(SVG) */
+  .q-figure{margin:12px 0;text-align:center}
+  .q-figure svg{max-width:100%;height:auto;max-height:340px;border:1px solid var(--line);border-radius:8px;background:#fff;padding:6px}
+  .pr-q-big .q-figure svg{max-height:46vh}
   /* ===== 모바일(<1024px) 전용 네비게이션: 햄버거 + 슬라이드 드로어 =====
      반드시 max-width로 감싸야 데스크톱(≥1024px) 사이드바 규칙을 덮어쓰지 않음 */
   @media (max-width:1023px){
@@ -2172,7 +2176,7 @@ function buildGenPrompt(secLabel, topicStr, count, diffLabel, note, weakNote, av
 - 실제 시험 문체의 간결한 문장제와 순수 대수를 섞으세요. 맥락형(word problem)과 추상형을 함께.
 - 모든 수식·식·숫자는 LaTeX로: 인라인 \\( ... \\), 디스플레이 $$ ... $$. 예: \\(f(x)=2x^2-3x+1\\), \\(\\frac{3}{4}\\), \\(\\sqrt{50}=5\\sqrt{2}\\), \\(\\le\\). (JSON 문자열 안 백슬래시는 \\\\ 로 이스케이프)
 - 객관식 오답(distractor)은 무작위 금지: 부호 실수·분배법칙 실수·단위 누락·자주 혼동하는 공식 등 "전형적 계산 실수"가 만들어내는 실제 값으로 설계.
-- 표/그래프가 필요하면 표는 텍스트나 LaTeX array로 명확히 제시.` : `
+- 표는 텍스트/LaTeX array로 제시.` : `
 [Reading & Writing 실전 규격]
 - 한 문항 = 하나의 짧은 독립 지문(25~150단어). 출처 느낌이 나도록: 문학(소설·시), 역사·사회과학(건국문서·연설 포함), 인문학, 자연과학 중에서. 필요 시 "Adapted from a 2019 article." 같은 맥락 한 줄 허용.
 - 아래 공식 유형의 표준 발문을 그대로 사용(선택 유형 ${topicStr}에 맞춰):
@@ -2214,10 +2218,15 @@ ${weakNote?("학생이 반복적으로 약한 유형(집중 공략): "+weakNote+
 ${genreHint?(genreHint+"\n"):""}${sectionSpec}
 ${avoidText?("\n[중복 금지 — 매우 중요] 아래는 이미 출제된 문항들의 발문 일부입니다. 이들과 지문·소재·상황·숫자·정답 시나리오가 절대 겹치지 않도록, 전혀 다른 새 문제만 만드세요. 같은 주제·소재를 살짝 바꾼 변형도 금지:\n- "+avoidText+"\n"):""}
 [이 묶음 내부 중복 금지] 이번에 만드는 ${count}문항끼리도 서로 지문 소재·주제·상황·등장인물·핵심 숫자가 겹치면 안 됩니다. 각 문항이 완전히 다른 소재여야 합니다.
+[그림/도표 — 절대 ASCII로 그리지 말 것]
+- 그림이 필요한 문항(좌표평면의 그래프·포물선·직선, 산점도, 막대/선 그래프, 도형·각도·삼각형, 수직선 등)은 "figure" 필드에 **깔끔한 SVG 코드**를 넣으세요. ASCII 아트("----/----" 같은 것) 금지.
+- SVG 규칙: 반드시 <svg ...>로 시작하고 viewBox 포함(예: viewBox='0 0 360 280'). **모든 속성값은 작은따옴표(')로 감싸세요**(JSON 깨짐 방지 — SVG 안에서 큰따옴표 " 사용 금지). 배경 흰색, 선은 검정(stroke='#111'), 좌표평면이면 격자(옅은 회색 #ccc)·x/y축·화살표·눈금 숫자 라벨을 그려 실제 SAT처럼. 포물선/곡선은 <path> 또는 촘촘한 <polyline>으로. 점은 <circle r='3'>. 텍스트 라벨은 <text font-size='12'>.
+- 외부 리소스·<script>·이벤트 속성 금지. 자체 완결형 정적 SVG만.
+- 그림이 필요 없는 문항은 "figure"를 빈 문자열로 두세요. stem에서 그림을 가리킬 때 "the graph shown"/"the figure" 등 실제 SAT 표현 사용.
 [출력] 순수 JSON만 출력(설명·백틱 금지):
-{"title":"시험지 제목(한국어, 영역·유형 반영)","questions":[{"number":1,"skill":"공식 유형명","difficulty":"easy|medium|hard","format":"mc","passage":"지문/맥락 또는 빈 문자열","stem":"발문(영어)","choices":{"A":"...","B":"...","C":"...","D":"..."},"answer":"A","explanation":"정답 해설(한국어, 단계적)","distractors":{"B":"오답 이유","C":"오답 이유","D":"오답 이유"}}]}
+{"title":"시험지 제목(한국어, 영역·유형 반영)","questions":[{"number":1,"skill":"공식 유형명","difficulty":"easy|medium|hard","format":"mc","passage":"지문/맥락 또는 빈 문자열","figure":"필요시 SVG 코드, 아니면 빈 문자열","stem":"발문(영어)","choices":{"A":"...","B":"...","C":"...","D":"..."},"answer":"A","explanation":"정답 해설(한국어, 단계적)","distractors":{"B":"오답 이유","C":"오답 이유","D":"오답 이유"}}]}
 - 객관식은 format:"mc". 수학 grid 문항은 format:"grid"로 하고 choices와 distractors를 생략, answer에 수치만.
-- JSON 문자열 안에서 백슬래시는 반드시 \\\\ 로 이스케이프.`;
+- JSON 문자열 안에서 백슬래시는 반드시 \\\\ 로 이스케이프. (SVG 안에는 백슬래시를 쓰지 마세요)`;
 }
 
 // JSON 안의 잘못된 백슬래시 이스케이프(\sqrt 등 LaTeX)를 \\ 로 보정
@@ -2324,6 +2333,23 @@ function typesetMath(el){
       {left:"\\(",right:"\\)",display:false}
     ], throwOnError:false }); }catch(_e){}
   }
+}
+// 문항 그림(SVG) — 스크립트/이벤트 제거 후 안전하게 렌더
+function sanitizeSVG(s){
+  s=String(s||"").trim();
+  const i=s.search(/<svg[\s>]/i); if(i<0) return "";
+  s=s.slice(i);
+  const e=s.toLowerCase().lastIndexOf("</svg>"); if(e>=0) s=s.slice(0, e+6);
+  s=s.replace(/<script[\s\S]*?<\/script>/gi,"")
+     .replace(/<foreignObject[\s\S]*?<\/foreignObject>/gi,"")
+     .replace(/\son\w+\s*=\s*"[^"]*"/gi,"")
+     .replace(/\son\w+\s*=\s*'[^']*'/gi,"")
+     .replace(/(href|xlink:href)\s*=\s*("|')\s*javascript:[^"']*\2/gi,"");
+  return s;
+}
+function figureHtml(q){
+  const svg = q ? sanitizeSVG(q.figure) : "";
+  return svg ? '<div class="q-figure">'+svg+'</div>' : "";
 }
 
 // 공통 생성 루틴 — 큰 문항 수는 5문항씩 배치로 나눠 호출(토큰 잘림 방지)
@@ -2549,6 +2575,7 @@ function renderPaper(){
         ${q.difficulty?`<span class="muted" style="font-size:11px">${esc(DIFF_LABEL[q.difficulty]||q.difficulty)}</span>`:""}
       </div>
       ${q.passage&&String(q.passage).trim()?`<div class="pq-passage">${esc(q.passage)}</div>`:""}
+      ${figureHtml(q)}
       <div class="pq-stem">${esc(q.stem||"")}</div>
       ${body}
       <div class="answer-block">
@@ -3460,6 +3487,7 @@ function renderExamQuestion(){
       <button class="bb-mark ${EX.marks[EX.idx]?'on':''}" onclick="toggleMarkCur()">🔖 Mark for Review</button>
       ${!isGrid?`<button class="bb-elimtoggle ${EX.elimMode?'on':''}" title="선택지 지우개" onclick="toggleElim()">A̶B̶C̶</button>`:''}
     </div>
+    ${figureHtml(q)}
     <div class="bb-stem">${esc(q.stem||"")}</div>
     ${answerHtml}`;
   const hasPassage = q.passage && String(q.passage).trim();
@@ -3581,6 +3609,7 @@ function renderExamResult(r){
         ${q.skill?`<span class="pq-skill">${esc(q.skill)}</span>`:""}
       </div>
       ${q.passage&&String(q.passage).trim()?`<div class="pq-passage">${esc(q.passage)}</div>`:""}
+      ${figureHtml(q)}
       <div class="pq-stem">${esc(q.stem||"")}</div>
       ${chHtml}
       <div class="answer-block" style="display:block">
@@ -3662,6 +3691,7 @@ function presQuestionHtml(q, showCorrect, showExp){
         `<li class="${showCorrect&&ans===c?'correct':''}"><span class="ck">${c}</span><span>${esc(choices[c])}</span></li>`).join("")+'</ul>';
   return `<div class="pr-qhead"><span class="pr-num">${esc(String(n))}</span>${q.skill?`<span class="pq-skill">${esc(q.skill)}</span>`:""}${q.difficulty?`<span class="muted" style="font-size:13px">${esc(DIFF_LABEL[q.difficulty]||q.difficulty)}</span>`:""}</div>
     ${q.passage&&String(q.passage).trim()?`<div class="pr-passage">${esc(q.passage)}</div>`:""}
+    ${figureHtml(q)}
     <div class="pr-stem">${esc(q.stem||"")}</div>
     ${choiceHtml}
     ${showExp&&q.explanation?`<div class="pr-exp"><b>해설</b><br>${esc(q.explanation)}</div>`:""}`;

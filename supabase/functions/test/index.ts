@@ -18,7 +18,7 @@ function svc(){ return createClient(SUPABASE_URL,SERVICE_ROLE,{db:{schema:"imsat
 function moduleTimeSec(sec){ return sec==="math"?2100:1920; }            // Math 35분 / R&W 32분
 function flatTimeSec(sec,c){ const per=sec==="math"?95:71; return Math.max(60,Math.round((c||1)*per)); }
 function norm(v){ return String(v??"").trim(); }
-function strip(qs){ return (qs||[]).map((q,i)=>({number:q.number||(i+1),skill:q.skill||"",format:q.format||"mc",passage:q.passage||"",stem:q.stem||"",choices:q.choices||{}})); }
+function strip(qs){ return (qs||[]).map((q,i)=>({number:q.number||(i+1),skill:q.skill||"",format:q.format||"mc",passage:q.passage||"",figure:q.figure||"",stem:q.stem||"",choices:q.choices||{}})); }
 function gradeOne(q,ans){ const a=norm(ans),correct=norm(q.answer);
   const isGrid=q.format==="grid"||!(q.choices&&["A","B","C","D"].some(c=>q.choices[c]!==undefined));
   if(isGrid){ if(!a) return false; if(a.toLowerCase()===correct.toLowerCase()) return true;
@@ -31,7 +31,7 @@ function scoreModule(qs, answers, offset){
   let score=0; const review=[], wrong=[];
   (qs||[]).forEach((q,i)=>{ const ans=(answers||[])[i]??""; const ok=gradeOne(q,ans); if(ok) score++;
     else wrong.push({number:q.number||(offset+i+1),student:norm(ans)||"(미응답)",correct:norm(q.answer),content:composeContent(q)});
-    review.push({number:q.number||(offset+i+1),skill:q.skill||"",format:q.format||"mc",passage:q.passage||"",stem:q.stem||"",choices:q.choices||{},answer:norm(q.answer),your:norm(ans),correct:ok,explanation:q.explanation||"",distractors:q.distractors||{}}); });
+    review.push({number:q.number||(offset+i+1),skill:q.skill||"",format:q.format||"mc",passage:q.passage||"",figure:q.figure||"",stem:q.stem||"",choices:q.choices||{},answer:norm(q.answer),your:norm(ans),correct:ok,explanation:q.explanation||"",distractors:q.distractors||{}}); });
   return { score, review, wrong };
 }
 function routeOf(m1score,m1count,th){ const t=(typeof th==="number"&&th>0)?th:0.6; return (m1count>0 && m1score/m1count>=t) ? "hard":"easy"; }
