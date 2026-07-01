@@ -1038,6 +1038,49 @@ function show(view){
   });
   updateNavActive(view);
   window.scrollTo(0,0);
+  saveNav(view);
+}
+
+// ---------- 현재 화면 기억 (탭 이탈·새로고침 후 복원) ----------
+let navOrigin = null;  // 'student' | 'library' | 'generate' | null
+const NAV_KEY = "imsat_nav_v1";
+function saveNav(view){
+  try{
+    localStorage.setItem(NAV_KEY, JSON.stringify({
+      view,
+      studentId: currentStudent ? currentStudent.id : null,
+      paperId: currentPaper ? currentPaper.savedId : null,
+      origin: navOrigin,
+      ts: Date.now()
+    }));
+  }catch(_e){}
+}
+async function restoreNav(){
+  let s=null;
+  try{ s=JSON.parse(localStorage.getItem(NAV_KEY)||"null"); }catch(_e){ s=null; }
+  // 24시간 지난 기록은 무시
+  if(!s || !s.view || (Date.now()-(s.ts||0) > 24*3600*1000)) return false;
+  try{
+    if(s.view==="paper" && s.paperId){
+      if(s.origin==="student" && s.studentId){
+        const { data } = await sb.from("students").select("*").eq("id",s.studentId).single();
+        if(data) currentStudent=data;
+      }
+      await openProblemSet(s.paperId, s.origin||"library");
+      return true;
+    }
+    if(s.view==="student" && s.studentId){
+      const { data } = await sb.from("students").select("*").eq("id",s.studentId).single();
+      if(data){ await openStudent(data); return true; }
+    }
+    if(s.view==="library"){ await showLibrary(); return true; }
+    if(s.view==="generate"){ showGenerate(); return true; }
+    if(s.view==="mistakes" && s.studentId){
+      const { data } = await sb.from("students").select("*").eq("id",s.studentId).single();
+      if(data){ await openStudent(data); return true; }
+    }
+  }catch(_e){}
+  return false;
 }
 function updateNavActive(view){
   const d=document.getElementById("nav-dash"), g=document.getElementById("nav-gen"), l=document.getElementById("nav-lib");
@@ -2307,6 +2350,7 @@ async function generateAdaptive(){
     paperSaveWarn="";
     try{ await savePaper(); }catch(se){ paperSaveWarn=String(se.message||se); }
     paperReturn = genStudent ? (st=>()=>openStudent(st))(genStudent) : showDashboard;
+    navOrigin = genStudent ? "student" : "generate";
     renderPaper();
     show("paper");
   }catch(e){
@@ -2656,6 +2700,7 @@ function renderLibrary(){
   list.innerHTML=arr.map(s=>setRow(s,'library')).join("");
 }
 async function openProblemSet(id, origin){
+  navOrigin = origin || "library";
   show("paper");
   document.getElementById("view-paper").innerHTML='<div class="loading"><div class="spinner"></div>시험지 불러오는 중…</div>';
   const { data, error } = await sb.from("problem_sets").select("*").eq("id",id).single();
@@ -2853,7 +2898,10 @@ function enterApp(session){
   document.getElementById("whoami").textContent = email ? ("로그인: "+email) : "";
   const sbw = document.getElementById("sbWho"); if(sbw) sbw.textContent = email || "";
   if(window._presentId){ const pid=window._presentId; const scr=window._presentScreen; window._presentId=null; startPresentation(pid, scr?'screen':'console'); return; }
-  showDashboard();
+  // 사이드바 학생 목록은 어느 화면으로 복원되든 항상 채워둔다
+  try{ loadStudents(); }catch(_e){}
+  // 마지막으로 보던 화면 복원(탭 이탈·새로고침 후). 실패 시 대시보드.
+  restoreNav().then(ok=>{ if(!ok) showDashboard(); }).catch(()=>showDashboard());
 }
 
 // ---------- 단축키 (N 새 학생 · G 출제 · D 대시보드 · B 사이드바) ----------
