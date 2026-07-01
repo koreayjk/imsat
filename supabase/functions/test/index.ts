@@ -93,6 +93,31 @@ Deno.serve(async(req)=>{
         timeLimitSec:flatTimeSec(ps.section,questions.length), students:studs||[], questions:strip(questions) });
     }
 
+    // ---------- result (지난 응시 결과·해설 다시 보기) ----------
+    if(body.action==="result"){
+      const st=await verifyStudent(sb,body.studentId,ps.teacher_id);
+      if(!st) return json({error:"등록된 학생이 아닙니다."},400);
+      const { data:att }=await sb.from("test_attempts").select("*")
+        .eq("problem_set_id",ps.id).eq("student_id",body.studentId)
+        .order("created_at",{ascending:false}).limit(1).maybeSingle();
+      if(!att) return json({found:false});
+      const ans=att.answers||{};
+      let total=0,score=0,review=[],route=null,scaled=null;
+      if(adaptive){
+        const m1=scoreModule(ps.modules.m1, ans.m1||[], 0);
+        route = ans.route || routeOf(m1.score, ps.modules.m1.length, ps.route_threshold);
+        const m2qs = route==="hard" ? (ps.modules.m2h||[]) : (ps.modules.m2e||[]);
+        const m2=scoreModule(m2qs, ans.m2||[], ps.modules.m1.length);
+        score=m1.score+m2.score; total=ps.modules.m1.length+m2qs.length;
+        review=[...m1.review,...m2.review]; scaled=scaledSection(score,total,route);
+      }else{
+        const arr=Array.isArray(ans)?ans:(ans.answers||[]);
+        const r=scoreModule(ps.questions||[], arr, 0);
+        score=r.score; total=(ps.questions||[]).length; review=r.review;
+      }
+      return json({ found:true, score, total, scaled, route, studentName:st.name, review, createdAt:att.created_at });
+    }
+
     // ---------- module2 (적응형: 모듈1 채점 → 라우팅) ----------
     if(body.action==="module2"){
       if(!adaptive) return json({error:"적응형 시험이 아닙니다."},400);

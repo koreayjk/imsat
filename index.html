@@ -3097,10 +3097,26 @@ function renderExamIntro(){
         <li>제출 후 점수와 정답·해설을 바로 확인합니다.</li>
       </ul>
       <button class="btn btn-primary" onclick="beginExam()">시험 시작</button>
+      <button class="btn btn-ghost" style="margin-top:10px" onclick="viewPastResult()">📄 이전 응시 결과·해설 보기</button>
       <div class="muted" style="font-size:11px;margin-top:14px;line-height:1.5">본 모의고사는 College Board와 무관하며, SAT는 College Board의 등록 상표입니다. 모든 문항은 IMSAT가 생성한 연습용입니다.</div>
     </div>`;
 }
 
+async function viewPastResult(){
+  const sel=document.getElementById("examStudent");
+  const sid=sel && sel.value;
+  const errBox=document.getElementById("examIntroErr");
+  if(!sid){ errBox.innerHTML='<div class="err" style="margin-top:10px">먼저 본인 이름을 선택하세요.</div>'; return; }
+  errBox.innerHTML='<div class="muted" style="margin-top:10px;font-size:13px">지난 결과를 불러오는 중…</div>';
+  try{
+    const res=await fetch(TEST_URL,{ method:"POST", headers:{ "Content-Type":"application/json", "apikey":SUPABASE_ANON, "Authorization":"Bearer "+SUPABASE_ANON },
+      body:JSON.stringify({ action:"result", token:EX.token, studentId:sid }) });
+    const r=await res.json();
+    if(r.error) throw new Error(r.error);
+    if(!r.found){ errBox.innerHTML='<div class="muted" style="margin-top:10px;font-size:13px">이 학생의 이전 응시 기록이 없습니다. 시험을 먼저 봐야 결과가 생깁니다.</div>'; return; }
+    renderExamResult(r);
+  }catch(e){ errBox.innerHTML='<div class="err" style="margin-top:10px">결과를 불러오지 못했습니다. <span class="muted">'+esc(String(e.message||e))+'</span></div>'; }
+}
 function beginExam(){
   const sel=document.getElementById("examStudent");
   const sid=sel && sel.value;
@@ -3362,12 +3378,14 @@ function renderExamResult(r){
       </div>
     </div>`;
   }).join("");
+  const takenAt = r.createdAt ? new Date(r.createdAt).toLocaleString("ko-KR",{year:"numeric",month:"long",day:"numeric",hour:"2-digit",minute:"2-digit"}) : "";
   document.getElementById("view-exam").innerHTML=`
     <div class="exam-card" style="text-align:center">
-      <div class="muted" style="font-size:13px">${esc(r.studentName||"")} 학생 · 채점 완료</div>
+      <div class="muted" style="font-size:13px">${esc(r.studentName||"")} 학생 · ${takenAt?("응시일 "+esc(takenAt)):"채점 완료"}</div>
       <div style="font-size:44px;font-weight:800;color:var(--ink);margin:8px 0 2px">${r.score} <span style="font-size:24px;color:var(--mut)">/ ${r.total}</span></div>
       <div class="muted">정답률 ${pct}%${r.route?(" · 모듈2 "+(r.route==='hard'?'상위(어려움)':'하위(쉬움)')):""}</div>
       ${r.scaled?`<div style="margin-top:10px;font-weight:800;color:var(--teal)">≈ ${r.scaled}점 <span class="muted" style="font-weight:400;font-size:11px">(근사 환산점수, 참고용)</span></div>`:""}
+      <button class="btn btn-ghost" style="width:auto;padding:8px 16px;margin-top:14px" onclick="renderExamIntro()">← 처음으로</button>
     </div>
     <div class="exam-card">
       <div class="h3" style="margin:0 0 14px">정답 · 해설</div>
