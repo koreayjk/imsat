@@ -961,9 +961,9 @@
           <label class="fld">모듈1 난이도</label>
           <div class="seg" id="genDiffSeg">
             <button data-d="easy">Easy</button>
-            <button data-d="medium">Medium</button>
+            <button data-d="medium" class="on">Medium</button>
             <button data-d="hard">Hard</button>
-            <button data-d="mixed" class="on">혼합</button>
+            <button data-d="mixed">혼합</button>
           </div>
         </div>
         <div>
@@ -2086,7 +2086,7 @@ function showGenerate(student=null, weakTypes=[], section="rw"){
   genStudent = student;
   genWeakNote = "";
   genTopics = [];
-  setGenSeg(section, "mixed");
+  setGenSeg(section, "medium");
   document.getElementById("genCount").value=(section==='math')?44:54;
   document.getElementById("genNote").value="";
   document.getElementById("genErr").innerHTML="";
