@@ -592,7 +592,9 @@
 
   @media (min-width:1024px){
     body.authed{padding-left:264px}
-    body.authed #sidebar{display:flex}
+    body.authed #sidebar{display:flex;transform:none}   /* 데스크톱: 항상 고정 표시 */
+    body.authed #sbToggleOpen{display:none}             /* 데스크톱: 햄버거 숨김(접을 때만) */
+    #sbBackdrop{display:none!important}
     /* 사이드바가 내비를 담당 → 대시보드 상단 로그아웃 줄은 데스크톱에서 숨김 */
     body.authed #view-dashboard > .no-print:first-child{display:none}
   }
@@ -612,6 +614,14 @@
     border:1px solid var(--line);background:#fff;color:var(--ink);font-size:18px;cursor:pointer;
     box-shadow:0 8px 18px -8px rgba(15,23,42,.4);display:none;align-items:center;justify-content:center}
   #sidebar{transition:transform .22s ease}
+  /* ===== 모바일(<1024px) 네비게이션: 햄버거 + 슬라이드 드로어 ===== */
+  body.authed #sbToggleOpen{display:flex}                 /* 모바일: 메뉴 버튼 항상 표시 */
+  body.authed #sidebar{display:flex;transform:translateX(-100%)}  /* 모바일: 기본 숨김(왼쪽 밖) */
+  body.authed.sb-open #sidebar{transform:translateX(0)}   /* 열기 */
+  body.authed.sb-open #sbToggleOpen{display:none}         /* 열렸을 땐 햄버거 숨김(브랜드와 겹침 방지) */
+  #sbBackdrop{display:none;position:fixed;inset:0;background:rgba(15,23,42,.45);z-index:55}
+  body.authed.sb-open #sbBackdrop{display:block}
+  body.exam-mode #sbBackdrop, body.present-mode #sbBackdrop{display:none!important}
 
   /* 학생 상세 2단 (모바일은 그냥 세로 스택) */
   .stu-detail-grid{display:block}
@@ -648,6 +658,7 @@
   </div>
 </aside>
 <button id="sbToggleOpen" class="no-print" onclick="toggleSidebar()" title="메뉴 열기 (B)">☰</button>
+<div id="sbBackdrop" class="no-print" onclick="closeSidebar()"></div>
 <div class="wrap">
   <header class="top">
     <div class="eyebrow"><span class="rule"></span>SAT 오답 진단 시스템</div>
@@ -1042,6 +1053,7 @@ function show(view){
   });
   updateNavActive(view);
   window.scrollTo(0,0);
+  document.body.classList.remove("sb-open");  // 모바일: 화면 이동 시 드로어 닫기
   saveNav(view);
 }
 
@@ -1101,11 +1113,13 @@ function highlightSidebarStudent(id){
   document.querySelectorAll("#sbStudents .sb-stu").forEach(el=>
     el.classList.toggle("on", el.dataset.id===String(id||"")));
 }
-// 사이드바 접기/펼치기
+// 사이드바 접기/펼치기 (데스크톱=접기, 모바일=드로어 열기)
 function toggleSidebar(){
+  if(window.innerWidth<1024){ document.body.classList.toggle("sb-open"); return; }
   document.body.classList.toggle("sb-collapsed");
   try{ localStorage.setItem("imsat_sb_collapsed", document.body.classList.contains("sb-collapsed")?"1":"0"); }catch(_e){}
 }
+function closeSidebar(){ document.body.classList.remove("sb-open"); }
 function showDashboard(){ show("dashboard"); loadStudents(); renderDraftBanner(); }
 
 // ---------- 작업 임시 저장 (localStorage) ----------
