@@ -123,6 +123,11 @@ create policy imsat_attempts_student on imsat.test_attempts
   for select to authenticated using (
     student_id in (select id from imsat.students where auth_user_id = auth.uid()));
 
+-- 10) 배부 표시/응시용 비정규화 컬럼 (학생이 problem_sets를 직접 못 읽어도 되게) --
+alter table imsat.assignments add column if not exists share_token text;
+alter table imsat.assignments add column if not exists title text;
+alter table imsat.assignments add column if not exists section text;
+
 -- 완료. 확인:
 --   select role, count(*) from imsat.profiles group by role;   -- teacher 2
 --   select name, join_code from imsat.students;

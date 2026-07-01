@@ -624,6 +624,25 @@
   #sbToggleOpen:active{background:#f8fafc;transform:scale(.94)}
   #sidebar{transition:transform .22s ease}
   #sbBackdrop{display:none;position:fixed;inset:0;background:rgba(15,23,42,.45);z-index:160}
+  /* ===== 학생 모드: 교사용 사이드바/햄버거 숨김 ===== */
+  body.student-mode{padding-left:0!important}
+  body.student-mode #sidebar, body.student-mode #sbToggleOpen, body.student-mode #sbBackdrop{display:none!important}
+  /* 학생 포털 카드 */
+  .pt-list{display:flex;flex-direction:column;gap:10px}
+  .pt-card{display:flex;align-items:center;gap:12px;border:1px solid var(--line);border-radius:12px;padding:14px 16px;background:#fff;flex-wrap:wrap}
+  .pt-card-main{flex:1;min-width:0}
+  .pt-title{font-weight:800;color:var(--ink);font-size:15px}
+  .pt-sub{font-size:12.5px;color:var(--mut);margin-top:2px}
+  .pt-actions{display:flex;gap:8px;flex-wrap:wrap}
+  /* 배부 패널 */
+  .asg-list{display:flex;flex-direction:column;gap:2px;max-height:340px;overflow-y:auto}
+  .asg-row{display:flex;align-items:center;gap:10px;padding:9px 10px;border-radius:9px}
+  .asg-row:hover{background:#f8fafc}
+  .asg-nm{font-weight:700;color:var(--ink);font-size:14px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .asg-code{font-family:ui-monospace,monospace;font-size:12px;font-weight:700;color:#0f766e;background:var(--teal-bg);
+    border:1px solid #99f6e4;border-radius:7px;padding:3px 8px;cursor:pointer;white-space:nowrap}
+  .asg-code:hover{background:#ccfbf1}
+  .asg-row .pill{flex:0 0 auto}
   /* ===== 모바일(<1024px) 전용 네비게이션: 햄버거 + 슬라이드 드로어 =====
      반드시 max-width로 감싸야 데스크톱(≥1024px) 사이드바 규칙을 덮어쓰지 않음 */
   @media (max-width:1023px){
@@ -684,15 +703,15 @@
   <section id="view-auth" class="hide">
     <div class="card" style="max-width:380px;margin:48px auto 0">
       <div class="login-hero"></div>
-      <div class="eyebrow" style="justify-content:center;margin-bottom:14px"><span class="rule"></span>교사 로그인<span class="rule"></span></div>
+      <div class="eyebrow" style="justify-content:center;margin-bottom:14px"><span class="rule"></span>IMSAT 로그인<span class="rule"></span></div>
       <label class="fld">이메일</label>
-      <input id="authEmail" type="email" placeholder="teacher@example.com" autocomplete="username" />
+      <input id="authEmail" type="email" placeholder="you@example.com" autocomplete="username" />
       <label class="fld" style="margin-top:10px">비밀번호</label>
       <input id="authPass" type="password" placeholder="6자 이상" autocomplete="current-password" />
       <div id="authMsg" style="margin-top:10px"></div>
       <button class="btn btn-primary" style="margin-top:12px" onclick="login()">로그인</button>
       <button class="btn btn-ghost" style="margin-top:8px" onclick="signup()">회원가입</button>
-      <div class="muted" style="margin-top:12px;text-align:center">학원 선생님 계정으로 로그인하세요.<br>본인이 등록한 학생만 보입니다.</div>
+      <div class="muted" style="margin-top:12px;text-align:center">선생님은 바로 로그인하세요.<br><b>학생</b>은 회원가입 후 선생님께 받은 <b>초대 코드</b>를 입력하면 됩니다.</div>
     </div>
   </section>
 
@@ -1023,6 +1042,9 @@
 
   <!-- ============ 누적 종합 분석 ============ -->
   <section id="view-profile" class="hide"></section>
+
+  <!-- ============ 학생 포털 (학생 로그인 화면) ============ -->
+  <section id="view-portal" class="hide"></section>
 </div>
 
 <script>
@@ -2551,7 +2573,9 @@ function renderPaper(){
       <button class="btn btn-ghost" id="regenBtn" onclick="regenerateSimilar()">🔄 비슷하게 새 문제</button>
       <button class="btn btn-ghost" onclick="startDiagnosisFromPaper()">✏️ 이 시험지로 진단</button>
       <button class="btn btn-ghost" onclick="verifyPaper()">🔍 문제 검수</button>
+      <button class="btn btn-primary" style="flex:0 0 auto;width:auto;padding:9px 16px" onclick="openAssign()">📤 학생에게 배부</button>
     </div>
+    <div id="assignBox" class="no-print"></div>
     <div id="shareBox" class="no-print"></div>
     ${warn}
     <div class="paper" id="paperEl">
@@ -2772,6 +2796,68 @@ function copyShareLink(){
   const i=document.getElementById("shareLink"); if(!i) return; i.select();
   try{ navigator.clipboard.writeText(i.value); }catch(_e){ document.execCommand("copy"); }
   const b=event&&event.target; if(b){ const t=b.textContent; b.textContent="복사됨 ✓"; setTimeout(()=>b.textContent=t,1500); }
+}
+
+function copyCode(code, el){
+  if(!code||code==="-") return;
+  try{ navigator.clipboard.writeText(code); }catch(_e){}
+  if(el){ const t=el.textContent; el.textContent="복사됨 ✓"; setTimeout(()=>el.textContent=t,1200); }
+}
+// ---------- 학생에게 배부 ----------
+async function openAssign(){
+  const box=document.getElementById("assignBox"); if(!box||!currentPaper) return;
+  if(box.dataset.open==="1"){ box.innerHTML=""; box.dataset.open="0"; return; }
+  box.dataset.open="1";
+  box.innerHTML='<div class="card"><div class="muted" style="padding:8px">학생 목록 불러오는 중…</div></div>';
+  try{
+    // 저장 + 공유 토큰 보장
+    if(!currentPaper.savedId){ await savePaper(); }
+    let token=currentPaper.shareToken;
+    if(!token){
+      token=(window.crypto&&crypto.randomUUID)?crypto.randomUUID().replace(/-/g,""):(Math.random().toString(36).slice(2)+Date.now().toString(36));
+      const { error } = await sb.from("problem_sets").update({ share_token: token }).eq("id", currentPaper.savedId);
+      if(error) throw new Error(error.message);
+      currentPaper.shareToken=token;
+    }
+    const { data:studs, error } = await sb.from("students").select("id,name,join_code").order("name");
+    if(error) throw new Error(error.message);
+    const { data:existing } = await sb.from("assignments").select("student_id").eq("problem_set_id", currentPaper.savedId);
+    const done=new Set((existing||[]).map(a=>a.student_id));
+    const rows=(studs||[]).map(s=>`<div class="asg-row">
+      <label style="display:flex;align-items:center;gap:9px;flex:1;cursor:pointer;min-width:0">
+        <input type="checkbox" value="${esc(s.id)}" ${done.has(s.id)?'checked disabled':''} />
+        <span class="asg-nm">${esc(s.name)}</span>
+      </label>
+      <span class="asg-code" title="학생 회원가입용 초대코드" onclick="copyCode('${esc(s.join_code||"")}',this)">🔑 ${esc(s.join_code||"-")}</span>
+      ${done.has(s.id)?'<span class="pill pill-teal">배부됨</span>':''}
+    </div>`).join("");
+    box.innerHTML=`<div class="card">
+      <div style="font-weight:800;color:var(--ink);margin-bottom:4px">📤 학생에게 배부</div>
+      <div class="muted" style="font-size:12.5px;margin-bottom:10px">체크한 학생의 계정에 이 시험이 뜹니다(로그인 후 응시). <b>🔑 초대코드</b>는 학생이 처음 회원가입할 때 입력하는 코드예요(눌러서 복사). 이미 배부된 학생은 회색 처리됩니다.</div>
+      <div class="asg-list">${rows||'<div class="muted">학생이 없습니다.</div>'}</div>
+      <div id="assignMsg" style="margin-top:8px"></div>
+      <div class="btn-row" style="margin-top:10px">
+        <button class="btn btn-primary" style="flex:0 0 auto;width:auto;padding:9px 18px" onclick="doAssign()">선택 학생에게 배부</button>
+        <button class="btn btn-ghost" style="flex:0 0 auto;width:auto;padding:9px 14px" onclick="openAssign()">닫기</button>
+      </div>
+    </div>`;
+  }catch(e){ box.innerHTML='<div class="err">배부 준비 실패: '+esc(String(e.message||e))+'</div>'; box.dataset.open="0"; }
+}
+async function doAssign(){
+  const box=document.getElementById("assignBox");
+  const msg=document.getElementById("assignMsg");
+  const ids=[...box.querySelectorAll('input[type=checkbox]:not(:disabled):checked')].map(c=>c.value);
+  if(!ids.length){ msg.innerHTML='<div class="err">배부할 학생을 선택하세요.</div>'; return; }
+  msg.innerHTML='<div class="muted" style="font-size:13px">배부 중…</div>';
+  try{
+    const orgId = myProfile ? myProfile.org_id : null;
+    const rows=ids.map(sid=>({ problem_set_id: currentPaper.savedId, student_id: sid, org_id: orgId,
+      share_token: currentPaper.shareToken, title: currentPaper.title, section: currentPaper.section }));
+    const { error } = await sb.from("assignments").upsert(rows, { onConflict:"problem_set_id,student_id", ignoreDuplicates:true });
+    if(error) throw new Error(error.message);
+    msg.innerHTML='<div class="card" style="background:var(--teal-bg);border-color:#99f6e4;color:#0f766e;font-size:13px;padding:10px 12px;margin:0">✅ '+ids.length+'명에게 배부했습니다. 학생이 로그인하면 시험이 보입니다.</div>';
+    box.dataset.open="0"; setTimeout(()=>openAssign(),700);   // 목록 새로고침(배부됨 표시)
+  }catch(e){ msg.innerHTML='<div class="err">배부 실패: '+esc(String(e.message||e))+'</div>'; }
 }
 
 // ---------- 출제 보관함 ----------
@@ -2998,23 +3084,125 @@ function esc(s){ return String(s==null?"":s).replace(/&/g,"&amp;").replace(/</g,
 
 // ---------- 인증 (교사 로그인) ----------
 function showAuth(){
-  document.body.classList.remove("authed");
+  document.body.classList.remove("authed","student-mode");
+  myProfile=null; myStudent=null;
   VIEWS.forEach(v=>document.getElementById("view-"+v).classList.add("hide"));
+  const pv=document.getElementById("view-portal"); if(pv) pv.classList.add("hide");
   document.getElementById("view-auth").classList.remove("hide");
   window.scrollTo(0,0);
 }
-function enterApp(session){
+let myProfile = null;
+async function fetchProfile(session){
+  if(!session || !session.user) return null;
+  try{ const { data } = await sb.from("profiles").select("*").eq("user_id", session.user.id).maybeSingle(); return data||null; }
+  catch(_e){ return null; }
+}
+async function enterApp(session){
   document.body.classList.add("authed");
-  try{ if(localStorage.getItem("imsat_sb_collapsed")==="1") document.body.classList.add("sb-collapsed"); }catch(_e){}
   document.getElementById("view-auth").classList.add("hide");
   const email = session && session.user ? session.user.email : "";
+  // 수업용 보기(선생님)는 role 조회 전에 처리
+  if(window._presentId){ const pid=window._presentId; const scr=window._presentScreen; window._presentId=null; startPresentation(pid, scr?'screen':'console'); return; }
+  // 역할(role) 확인 → 학생/온보딩/교사 분기
+  myProfile = await fetchProfile(session);
+  if(myProfile && myProfile.role === "student"){ enterStudentPortal(session); return; }
+  if(!myProfile){ showOnboarding(session); return; }   // 프로필 없음(신규 가입) → 초대코드 입력
+  // ---- 교사 ----
+  document.body.classList.remove("student-mode");
+  try{ if(localStorage.getItem("imsat_sb_collapsed")==="1") document.body.classList.add("sb-collapsed"); }catch(_e){}
   document.getElementById("whoami").textContent = email ? ("로그인: "+email) : "";
   const sbw = document.getElementById("sbWho"); if(sbw) sbw.textContent = email || "";
-  if(window._presentId){ const pid=window._presentId; const scr=window._presentScreen; window._presentId=null; startPresentation(pid, scr?'screen':'console'); return; }
-  // 사이드바 학생 목록은 어느 화면으로 복원되든 항상 채워둔다
   try{ loadStudents(); }catch(_e){}
-  // 마지막으로 보던 화면 복원(탭 이탈·새로고침 후). 실패 시 대시보드.
   restoreNav().then(ok=>{ if(!ok) showDashboard(); }).catch(()=>showDashboard());
+}
+
+// ---------- 신규 가입자 온보딩: 초대코드로 학생 연결 ----------
+function showOnboarding(session){
+  document.body.classList.add("student-mode");
+  VIEWS.concat(["exam","present","portal"]).forEach(v=>{ const el=document.getElementById("view-"+v); if(el) el.classList.add("hide"); });
+  const v=document.getElementById("view-portal"); v.classList.remove("hide");
+  v.innerHTML=`<div class="card" style="max-width:400px;margin:48px auto 0">
+    <div class="eyebrow" style="justify-content:center;margin-bottom:12px"><span class="rule"></span>학생 등록<span class="rule"></span></div>
+    <p class="muted" style="text-align:center;font-size:13px;margin:0 0 14px">선생님께 받은 <b>초대 코드</b>를 입력하면 내 계정이 연결됩니다.</p>
+    <label class="fld">초대 코드</label>
+    <input id="joinCode" placeholder="예: B9FDA04D" style="text-transform:uppercase;letter-spacing:2px;text-align:center;font-size:16px" />
+    <div id="joinMsg" style="margin-top:10px"></div>
+    <button class="btn btn-primary" style="margin-top:12px" onclick="submitJoinCode()">연결하기</button>
+    <button class="btn btn-ghost" style="margin-top:8px" onclick="signOut()">로그아웃</button>
+  </div>`;
+  setTimeout(()=>document.getElementById("joinCode")?.focus(),80);
+}
+async function submitJoinCode(){
+  const code=(document.getElementById("joinCode").value||"").trim();
+  const msg=document.getElementById("joinMsg");
+  if(!code){ msg.innerHTML='<div class="err">초대 코드를 입력하세요.</div>'; return; }
+  msg.innerHTML='<div class="muted" style="font-size:13px">연결 중…</div>';
+  try{
+    const { data, error } = await sb.rpc("link_student", { p_code: code });
+    if(error) throw new Error(error.message);
+    if(!data || !data.ok){ msg.innerHTML='<div class="err">'+esc((data&&data.error)||"연결 실패")+'</div>'; return; }
+    const { data:{ session } } = await sb.auth.getSession();
+    myProfile = await fetchProfile(session);
+    enterStudentPortal(session);
+  }catch(e){ msg.innerHTML='<div class="err">연결 실패: '+esc(String(e.message||e))+'</div>'; }
+}
+
+// ---------- 학생 포털 ----------
+let myStudent = null;
+async function enterStudentPortal(session){
+  document.body.classList.add("student-mode");
+  VIEWS.concat(["exam","present"]).forEach(v=>{ const el=document.getElementById("view-"+v); if(el) el.classList.add("hide"); });
+  const v=document.getElementById("view-portal"); v.classList.remove("hide");
+  v.innerHTML='<div class="loading"><div class="spinner"></div>불러오는 중…</div>';
+  try{
+    const { data:st } = await sb.from("students").select("*").eq("auth_user_id", session.user.id).maybeSingle();
+    if(!st){ showOnboarding(session); return; }
+    myStudent = st;
+    const [{ data:asg }, { data:att }] = await Promise.all([
+      sb.from("assignments").select("*").eq("student_id", st.id).order("created_at",{ascending:false}),
+      sb.from("test_attempts").select("id,problem_set_id,section,score,total,created_at").eq("student_id", st.id).order("created_at",{ascending:false})
+    ]);
+    renderStudentPortal(st, asg||[], att||[]);
+  }catch(e){ v.innerHTML='<div class="exam-card"><div class="err">불러오기 실패: '+esc(String(e.message||e))+'</div></div>'; }
+}
+function renderStudentPortal(st, assignments, attempts){
+  const v=document.getElementById("view-portal");
+  const doneSets = new Set(attempts.map(a=>a.problem_set_id));
+  const secLabel = s=> s==='math'?'Math':'Reading & Writing';
+  const asgHtml = assignments.length ? assignments.map(a=>{
+    const done = doneSets.has(a.problem_set_id);
+    return `<div class="pt-card">
+      <div class="pt-card-main">
+        <div class="pt-title">${esc(a.title||"IMSAT 모의고사")}</div>
+        <div class="pt-sub">${esc(secLabel(a.section))}${done?' · <span style="color:var(--teal);font-weight:700">응시 완료</span>':' · <span style="color:var(--amber);font-weight:700">응시 전</span>'}</div>
+      </div>
+      <div class="pt-actions">
+        ${done
+          ? `<button class="btn btn-ghost" style="width:auto;padding:8px 14px" onclick="portalViewResult('${a.problem_set_id}','${esc(a.share_token||"")}')">결과·해설</button>
+             <button class="btn btn-ghost" style="width:auto;padding:8px 14px" onclick="portalStartExam('${esc(a.share_token||"")}')">다시 풀기</button>`
+          : `<button class="btn btn-primary" style="width:auto;padding:8px 16px" onclick="portalStartExam('${esc(a.share_token||"")}')">응시하기 →</button>`}
+      </div>
+    </div>`;
+  }).join("") : '<div class="muted" style="padding:20px;text-align:center">아직 배부된 시험이 없습니다. 선생님이 시험을 보내면 여기에 표시됩니다.</div>';
+  v.innerHTML=`
+    <div class="btn-row no-print" style="margin-bottom:14px;justify-content:flex-end">
+      <span class="muted" style="align-self:center;margin-right:auto">${esc(st.name)} 학생</span>
+      <button class="btn btn-ghost" style="flex:0 0 auto;width:auto;padding:7px 14px;font-size:13px" onclick="signOut()">로그아웃</button>
+    </div>
+    <div class="hero hero-dash"><div class="hero-in">
+      <div class="hero-ey">IMSAT · Student</div>
+      <h2>${esc(st.name)}님, 안녕하세요</h2>
+      <p>배부된 시험을 풀고, 지난 점수와 해설을 언제든 다시 볼 수 있어요.</p>
+    </div></div>
+    <div class="card"><h3 style="margin:0 0 12px">📝 내 시험</h3><div class="pt-list">${asgHtml}</div></div>`;
+}
+function portalStartExam(token){
+  if(!token || !myStudent){ alert("이 시험은 링크 정보가 없어 응시할 수 없습니다. 선생님께 문의하세요."); return; }
+  window.open(location.pathname + "?test=" + token + "&sid=" + myStudent.id, "_blank");
+}
+function portalViewResult(psId, token){
+  if(!token || !myStudent) return;
+  window.open(location.pathname + "?test=" + token + "&sid=" + myStudent.id + "&review=1", "_blank");
 }
 
 // ---------- 단축키 (N 새 학생 · G 출제 · D 대시보드 · B 사이드바) ----------
@@ -3068,8 +3256,8 @@ document.getElementById("authPass").addEventListener("keydown",e=>{ if(e.key==="
 // ============================================================
 const EX = { token:null, info:null, qs:[], answers:{}, marks:{}, idx:0, remain:0, timer:null, navOpen:false };
 
-async function startExam(token){
-  EX.token = token;
+async function startExam(token, presetSid, reviewMode){
+  EX.token = token; EX.presetSid = presetSid || null;
   const root = document.getElementById("view-exam");
   root.innerHTML = '<div class="loading"><div class="spinner"></div>시험 정보를 불러오는 중…</div>';
   try{
@@ -3078,23 +3266,40 @@ async function startExam(token){
     const info = await res.json();
     if(info.error) throw new Error(info.error);
     EX.info = info; EX.qs = info.questions||[];
+    // 배부로 연 경우: 이름 이미 확정 / 결과보기면 바로 결과
+    if(presetSid && reviewMode){ await showAssignedResult(presetSid); return; }
     renderExamIntro();
   }catch(e){
     root.innerHTML = '<div class="exam-card"><div class="err">시험을 열 수 없습니다.<br><span class="muted">'+esc(String(e.message||e))+'</span></div></div>';
   }
 }
+async function showAssignedResult(sid){
+  const root=document.getElementById("view-exam");
+  root.innerHTML='<div class="loading"><div class="spinner"></div>지난 결과 불러오는 중…</div>';
+  try{
+    const res=await fetch(TEST_URL,{ method:"POST", headers:{ "Content-Type":"application/json", "apikey":SUPABASE_ANON, "Authorization":"Bearer "+SUPABASE_ANON },
+      body:JSON.stringify({ action:"result", token:EX.token, studentId:sid }) });
+    const r=await res.json();
+    if(r.error) throw new Error(r.error);
+    if(!r.found){ root.innerHTML='<div class="exam-card"><div class="muted">아직 응시 기록이 없습니다.</div><button class="btn btn-primary" style="margin-top:12px" onclick="renderExamIntro()">시험 보기</button></div>'; return; }
+    renderExamResult(r);
+  }catch(e){ root.innerHTML='<div class="exam-card"><div class="err">결과를 불러오지 못했습니다: '+esc(String(e.message||e))+'</div></div>'; }
+}
 function fmtTime(s){ const m=Math.floor(s/60), ss=s%60; return m+":"+String(ss).padStart(2,"0"); }
 
 function renderExamIntro(){
   const i=EX.info;
-  const opts = (i.students||[]).map(s=>`<option value="${esc(s.id)}">${esc(s.name)}</option>`).join("");
+  const preset = EX.presetSid ? (i.students||[]).find(s=>String(s.id)===String(EX.presetSid)) : null;
+  const opts = (i.students||[]).map(s=>`<option value="${esc(s.id)}"${preset&&String(s.id)===String(preset.id)?' selected':''}>${esc(s.name)}</option>`).join("");
+  const namePart = preset
+    ? `<div class="card" style="background:var(--teal-bg);border-color:#99f6e4;padding:12px 14px;margin:0 0 6px"><b style="color:#0f766e">${esc(preset.name)}</b> 학생으로 응시합니다.</div><select id="examStudent" style="display:none">${opts}</select>`
+    : `<label class="fld">이름을 선택하세요</label><select id="examStudent">${opts||'<option value="">등록된 학생이 없습니다</option>'}</select>`;
   document.getElementById("view-exam").innerHTML = `
     <div class="exam-card">
       <div class="ey" style="color:var(--amber);font-size:11px;letter-spacing:.16em;text-transform:uppercase;margin-bottom:6px">IMSAT · Practice Test</div>
       <h2 style="margin:0 0 6px;font-size:22px;color:var(--ink)">${esc(i.title||"IMSAT 모의고사")}</h2>
       <p class="muted" style="margin:0 0 18px">${esc(i.secLabel)} · ${i.count}문항 · 제한시간 ${Math.round(i.timeLimitSec/60)}분</p>
-      <label class="fld">이름을 선택하세요</label>
-      <select id="examStudent">${opts||'<option value="">등록된 학생이 없습니다</option>'}</select>
+      ${namePart}
       <div id="examIntroErr"></div>
       <ul class="muted" style="font-size:13px;line-height:1.7;margin:16px 0 18px;padding-left:18px">
         <li>시작하면 타이머가 작동하며, 시간이 끝나면 자동 제출됩니다.</li>
@@ -3549,13 +3754,16 @@ document.addEventListener("keydown",e=>{
 });
 
 // 시작 — 시험 링크 / 수업용 보기(학생화면) / 일반 앱
-const _examToken = new URLSearchParams(location.search).get("test");
-const _presentId = new URLSearchParams(location.search).get("present");
-const _presentScreen = new URLSearchParams(location.search).get("screen");
+const _qp = new URLSearchParams(location.search);
+const _examToken = _qp.get("test");
+const _examSid = _qp.get("sid");
+const _examReview = _qp.get("review")==="1";
+const _presentId = _qp.get("present");
+const _presentScreen = _qp.get("screen");
 if(_examToken && configured){
   document.body.classList.add("exam-mode");
   document.getElementById("view-exam").classList.remove("hide");
-  startExam(_examToken);
+  startExam(_examToken, _examSid, _examReview);
 }else if(configured){
   window._presentId = _presentId;
   window._presentScreen = _presentScreen;
