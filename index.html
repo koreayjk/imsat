@@ -450,10 +450,13 @@
   @media(max-width:560px){ .exam-navgrid{grid-template-columns:repeat(6,1fr)} }
 
   /* ============ 수업용 보기(프레젠테이션) ============ */
-  body.present-mode{padding-left:0!important;background:#0f172a}
+  body.present-mode{padding-left:0!important;background:#0f172a;overflow:hidden}
   body.present-mode #sidebar, body.present-mode #sbToggleOpen, body.present-mode header.top, body.present-mode #configWarn{display:none!important}
-  body.present-mode .wrap{max-width:none;padding:0;margin:0}
-  body.present-mode #view-present{animation:none!important}
+  body.present-mode .wrap{max-width:none;padding:0;margin:0;transform:none!important}
+  /* #view-present 를 뷰포트에 고정된 전체화면 레이어로 → 상위 transform/스크롤 영향 차단 */
+  body.present-mode #view-present{position:fixed;inset:0;width:100%;height:100%;overflow:hidden;animation:none!important;transform:none!important}
+  /* 프레젠테이션 바들은 #view-present(전체화면) 기준 absolute 로 앵커 → 고정 깨짐 방지 */
+  body.present-mode .pr-top, body.present-mode .pr-body, body.present-mode .pr-bottom{position:absolute}
   .pr-top{position:fixed;top:0;left:0;right:0;height:58px;display:flex;align-items:center;gap:14px;
     padding:0 22px;background:#0b1220;color:#fff;z-index:20;border-bottom:1px solid #1e293b}
   .pr-title{font-weight:800;font-size:16px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
@@ -462,7 +465,8 @@
   .pr-x{background:#1e293b;border:none;color:#e2e8f0;padding:8px 14px;border-radius:9px;cursor:pointer;font-weight:700;font-family:inherit}
   .pr-x:hover{background:#334155}
   .pr-body{position:fixed;top:58px;bottom:74px;left:0;right:0;display:grid;grid-template-columns:1.5fr 1fr;gap:0;overflow:hidden}
-  .pr-q{overflow-y:auto;padding:34px clamp(20px,5vw,70px);background:#fff}
+  .pr-q{overflow-y:auto;overflow-x:hidden;min-width:0;max-width:100%;padding:34px clamp(20px,5vw,70px);background:#fff}
+  .pr-passage,.pr-stem,.pr-choices li{overflow-wrap:anywhere;word-break:break-word}
   .pr-qhead{display:flex;align-items:center;gap:12px;margin-bottom:18px;border-bottom:1px solid var(--line);padding-bottom:12px}
   .pr-num{background:#0f172a;color:#fff;font-weight:800;font-size:18px;width:34px;height:34px;border-radius:8px;display:flex;align-items:center;justify-content:center}
   .pr-passage{font-size:19px;line-height:1.9;color:var(--ink2);white-space:pre-line;margin-bottom:18px;
