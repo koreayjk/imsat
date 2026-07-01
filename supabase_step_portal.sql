@@ -155,6 +155,18 @@ begin
 end $$;
 grant execute on function imsat.update_student_profile(text,text,text,text) to authenticated;
 
+-- 13) 학생 본인의 지난 응시 결과 목록 (제목·토큰 포함 — problem_sets 직접 못 읽어도 되게) --
+create or replace function imsat.my_attempts()
+returns table(attempt_id uuid, problem_set_id uuid, title text, section text, score int, total int, share_token text, created_at timestamptz)
+language sql stable security definer set search_path = imsat as $$
+  select ta.id, ta.problem_set_id, coalesce(ps.title, ta.section), ta.section, ta.score, ta.total, ps.share_token, ta.created_at
+  from imsat.test_attempts ta
+  join imsat.problem_sets ps on ps.id = ta.problem_set_id
+  where ta.student_id in (select id from imsat.students where auth_user_id = auth.uid())
+  order by ta.created_at desc;
+$$;
+grant execute on function imsat.my_attempts() to authenticated;
+
 -- 완료. 확인:
 --   select role, count(*) from imsat.profiles group by role;   -- teacher 2
 --   select name, join_code from imsat.students;

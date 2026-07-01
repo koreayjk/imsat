@@ -3240,17 +3240,33 @@ async function enterStudentPortal(session){
     const { data:st } = await sb.from("students").select("*").eq("auth_user_id", session.user.id).maybeSingle();
     if(!st){ showOnboarding(session); return; }
     myStudent = st;
-    const [{ data:asg }, { data:att }] = await Promise.all([
+    const [{ data:asg }, attRes] = await Promise.all([
       sb.from("assignments").select("*").eq("student_id", st.id).order("created_at",{ascending:false}),
-      sb.from("test_attempts").select("id,problem_set_id,section,score,total,created_at").eq("student_id", st.id).order("created_at",{ascending:false})
+      sb.rpc("my_attempts")   // 지난 응시 결과(제목·토큰 포함)
     ]);
-    renderStudentPortal(st, asg||[], att||[]);
+    const att = (attRes && attRes.data) || [];
+    renderStudentPortal(st, asg||[], att);
   }catch(e){ v.innerHTML='<div class="exam-card"><div class="err">불러오기 실패: '+esc(String(e.message||e))+'</div></div>'; }
 }
 function renderStudentPortal(st, assignments, attempts){
   const v=document.getElementById("view-portal");
   const doneSets = new Set(attempts.map(a=>a.problem_set_id));
   const secLabel = s=> s==='math'?'Math':'Reading & Writing';
+  // 지난 응시 결과(모든 응시 기록 — 배부 여부 무관)
+  const pastHtml = attempts.length ? attempts.map(a=>{
+    const d=a.created_at?new Date(a.created_at).toLocaleDateString("ko-KR",{month:'short',day:'numeric'}):"";
+    const pct=a.total?Math.round((a.score/a.total)*100):0;
+    return `<div class="pt-card">
+      <div class="pt-card-main">
+        <div class="pt-title">${esc(a.title||"IMSAT 모의고사")}</div>
+        <div class="pt-sub">${esc(secLabel(a.section))} · 점수 <b>${a.score}/${a.total}</b> (${pct}%) · ${d}</div>
+      </div>
+      <div class="pt-actions">
+        ${a.share_token?`<button class="btn btn-ghost" style="width:auto;padding:8px 14px" onclick="portalViewResult('${esc(a.share_token)}')">결과·해설 보기</button>`
+          :'<span class="muted" style="font-size:12px">링크 정보 없음</span>'}
+      </div>
+    </div>`;
+  }).join("") : '<div class="muted" style="padding:16px;text-align:center">아직 응시한 시험이 없습니다.</div>';
   const asgHtml = assignments.length ? assignments.map(a=>{
     const done = doneSets.has(a.problem_set_id);
     return `<div class="pt-card">
@@ -3260,7 +3276,7 @@ function renderStudentPortal(st, assignments, attempts){
       </div>
       <div class="pt-actions">
         ${done
-          ? `<button class="btn btn-ghost" style="width:auto;padding:8px 14px" onclick="portalViewResult('${a.problem_set_id}','${esc(a.share_token||"")}')">결과·해설</button>
+          ? `<button class="btn btn-ghost" style="width:auto;padding:8px 14px" onclick="portalViewResult('${esc(a.share_token||"")}')">결과·해설</button>
              <button class="btn btn-ghost" style="width:auto;padding:8px 14px" onclick="portalStartExam('${esc(a.share_token||"")}')">다시 풀기</button>`
           : `<button class="btn btn-primary" style="width:auto;padding:8px 16px" onclick="portalStartExam('${esc(a.share_token||"")}')">응시하기 →</button>`}
       </div>
@@ -3276,7 +3292,8 @@ function renderStudentPortal(st, assignments, attempts){
       <h2>${esc(st.name)}님, 안녕하세요</h2>
       <p>배부된 시험을 풀고, 지난 점수와 해설을 언제든 다시 볼 수 있어요.</p>
     </div></div>
-    <div class="card"><h3 style="margin:0 0 12px">📝 내 시험</h3><div class="pt-list">${asgHtml}</div></div>
+    <div class="card"><h3 style="margin:0 0 12px">📝 내 시험 <span class="muted" style="font-weight:400;font-size:13px">(선생님이 배부한 시험)</span></h3><div class="pt-list">${asgHtml}</div></div>
+    <div class="card"><h3 style="margin:0 0 12px">📊 지난 응시 결과 <span class="muted" style="font-weight:400;font-size:13px">(내가 본 모든 시험)</span></h3><div class="pt-list">${pastHtml}</div></div>
     <div class="card">
       <h3 style="margin:0 0 4px">👤 내 정보</h3>
       <div class="muted" style="font-size:12.5px;margin-bottom:12px">이메일(로그인 아이디)은 바꿀 수 없어요. 나머지는 수정 후 저장하세요.</div>
@@ -3315,8 +3332,8 @@ function portalStartExam(token){
   if(!token || !myStudent){ alert("이 시험은 링크 정보가 없어 응시할 수 없습니다. 선생님께 문의하세요."); return; }
   window.open(location.pathname + "?test=" + token + "&sid=" + myStudent.id, "_blank");
 }
-function portalViewResult(psId, token){
-  if(!token || !myStudent) return;
+function portalViewResult(token){
+  if(!token || !myStudent){ alert("이 시험은 링크 정보가 없어 결과를 열 수 없습니다."); return; }
   window.open(location.pathname + "?test=" + token + "&sid=" + myStudent.id + "&review=1", "_blank");
 }
 
