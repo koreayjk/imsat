@@ -2230,6 +2230,11 @@ ${avoidText?("\n[중복 금지 — 매우 중요] 아래는 이미 출제된 문
 - 실제 Digital SAT Math는 그림 있는 문항이 많습니다. 이번 묶음의 **약 30~40%(3문항 중 최소 1문항)**는 그림이 필요한 유형으로 내고 "figure"에 SVG를 넣으세요: 좌표평면 그래프(직선·포물선·함수), 산점도+추세선, 막대/선 그래프, 기하 도형(삼각형·원·각도·평행선), 수직선, 표 등. 특히 Geometry·Data Analysis 유형은 대부분 그림 동반.
 - 그림이 필요한 문항은 "figure" 필드에 **깔끔한 SVG 코드**를 넣으세요. ASCII 아트("----/----" 같은 것) 금지.
 - SVG 규칙: 반드시 <svg ...>로 시작하고 viewBox 포함(예: viewBox='0 0 360 280'). **모든 속성값은 작은따옴표(')로 감싸세요**(JSON 깨짐 방지 — SVG 안에서 큰따옴표 " 사용 금지). 배경 흰색, 선은 검정(stroke='#111'), 좌표평면이면 격자(옅은 회색 #ccc)·x/y축·화살표·눈금 숫자 라벨을 그려 실제 SAT처럼. 포물선/곡선은 <path> 또는 촘촘한 <polyline>으로. 점은 <circle r='3'>. 텍스트 라벨은 <text font-size='12'>.
+[그래프-정답 일치 — 절대 규칙]
+- 순서: (1) 먼저 데이터/함수를 숫자로 확정(예: 추세선 y=4x+2, 또는 점들의 좌표). (2) 그 데이터를 SVG에 **정확한 스케일**로 그린다(데이터→픽셀 변환을 일정하게: 예 x축 1칸=30px, y축 10=20px). (3) 정답은 그 데이터/그래프에서 **직접 읽거나 계산한 값**으로 정하고, (4) 해설도 그래프에 실제 그려진 좌표·수치와 100% 일치.
+- 그래프에서 값을 읽어 답하는 문항(추세선 추정, 특정 x에서의 y 읽기 등)은 **정답 값이 그래프의 그 위치와 정확히 맞아야** 합니다. 해설에 쓰는 좌표는 반드시 SVG에 실제로 그린 점의 좌표와 같아야 함(그래프엔 (1,120)인데 해설에 (1,150) 쓰기 금지).
+- 조각별 선형(piecewise) 등은 함수를 먼저 정의하고 각 꼭짓점 좌표를 확정한 뒤 그 좌표대로 선을 그리세요.
+- 스스로 검증: "내가 그린 그래프에서 이 문제를 풀면 정답 선택지가 진짜로 나오는가?" 통과 못 하면 그 문항을 버리고 그림 없는 대수 문항으로 교체.
 - 외부 리소스·<script>·이벤트 속성 금지. 자체 완결형 정적 SVG만.
 - 그림이 필요 없는 문항은 "figure"를 빈 문자열로 두세요. stem에서 그림을 가리킬 때 "the graph shown"/"the figure" 등 실제 SAT 표현 사용.
 [출력] 순수 JSON만 출력(설명·백틱 금지):
@@ -2648,8 +2653,12 @@ function qaQText(q){
   const isGrid=(q.format==='grid')||!hasCh;
   const ch=isGrid ? "(직접 입력형 grid-in: 숫자/분수/소수로 답)"
     : ["A","B","C","D"].filter(k=>c[k]!==undefined).map(k=>k+") "+c[k]).join("\n");
+  // 그림 문항이면 SVG 좌표를 함께 전달 → Claude가 그래프 값을 읽어 검증
+  const fig = q.figure && String(q.figure).trim()
+    ? "\n[이 문항의 그래프 SVG — 좌표/라벨을 데이터축으로 환산해 값을 읽으세요]\n"+String(q.figure).slice(0,2500)
+    : "";
   return [ (q.passage&&String(q.passage).trim())?String(q.passage).trim():"", q.stem||"", ch ]
-    .filter(Boolean).join("\n");
+    .filter(Boolean).join("\n") + fig;
 }
 function qaNorm(s){ // grid-in 숫자 비교용 정규화 → 숫자 or null
   let t=String(s==null?"":s).trim().replace(/\s+/g,"");
