@@ -505,14 +505,14 @@
 
   /* ============ Bluebook 스타일 시험 (IMSAT) ============ */
   .bb-top{position:fixed;top:0;left:0;right:0;height:60px;z-index:30;background:#fff;border-bottom:2px solid #e2e8f0;
-    display:flex;align-items:center;justify-content:space-between;padding:0 18px}
-  .bb-left{display:flex;flex-direction:column;gap:1px;min-width:0}
-  .bb-section{font-weight:800;color:var(--ink);font-size:14px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:30vw}
-  .bb-sub{font-size:11px;color:var(--mut)}
-  .bb-center{display:flex;flex-direction:column;align-items:center;gap:2px}
+    display:flex;align-items:center;justify-content:space-between;gap:8px;padding:0 18px}
+  .bb-left{display:flex;flex-direction:column;gap:1px;min-width:0;flex:0 1 auto;overflow:hidden}
+  .bb-section{font-weight:800;color:var(--ink);font-size:14px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:100%}
+  .bb-sub{font-size:11px;color:var(--mut);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .bb-center{display:flex;flex-direction:column;align-items:center;gap:2px;flex:0 0 auto}
   .bb-timer{font-size:20px;font-weight:800;font-variant-numeric:tabular-nums;color:var(--ink)}
   .bb-hide{border:1px solid #cbd5e1;background:#fff;border-radius:99px;font-size:11px;padding:2px 12px;cursor:pointer;color:var(--ink2);font-family:inherit}
-  .bb-right{display:flex;align-items:center;gap:4px}
+  .bb-right{display:flex;align-items:center;gap:4px;flex:0 0 auto}   /* 도구는 절대 화면 밖으로 밀리지 않게 고정 */
   .bb-tool{display:flex;flex-direction:column;align-items:center;gap:1px;background:none;border:none;cursor:pointer;
     color:var(--ink2);font-size:10px;font-weight:600;padding:4px 8px;border-radius:8px;font-family:inherit}
   .bb-tool:hover{background:#f1f5f9}
@@ -572,8 +572,14 @@
   @media(max-width:760px){
     .bb-main.split{flex-direction:column}
     .bb-divider{width:auto;height:1px}
-    .bb-section{max-width:42vw}
-    .bb-tool span:not(.ic){display:none}
+    .bb-top{padding:0 8px;gap:4px}
+    .bb-section{max-width:34vw}            /* 제목 잘라 도구 공간 확보 */
+    .bb-sub{display:none}                 /* 공간 확보: 부제 숨김 */
+    .bb-timer{font-size:17px}
+    .bb-hide{display:none}                 /* 타이머 숨기기는 More 메뉴에 있음 */
+    .bb-tool span:not(.ic){display:none}   /* 도구는 아이콘만 */
+    .bb-tool{padding:5px 6px}
+    .bb-tool .ic{font-size:20px}
     .bb-calc{width:92vw;left:4vw}
     .bb-back,.bb-next{padding:10px 18px}
   }
