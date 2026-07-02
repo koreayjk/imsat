@@ -2684,30 +2684,35 @@ function qaMatch(q, claudeAns){
   }
   return stored.toUpperCase()===String(claudeAns||"").trim().toUpperCase();
 }
-// ---------- 수학 정답 자동 검증 (출제 직후 백그라운드) ----------
-let paperVerifyState = null;   // null | 'running' | 'done'
+// ---------- 수학 정답 자동 검증 + 자동 교체 (출제 직후 백그라운드·의무) ----------
+//  제미나이가 만든 뒤 → Claude가 각 문항을 직접 풀어 정답을 재확인하고
+//  어긋난 문항은 자동으로 다시 출제해 교체한 다음 재검증합니다.
+let paperVerifyState = null;   // null | 'running' | 'fixing' | 'done'
+let paperFixInfo = { replaced:0, remaining:0 };
 function autoVerifyBanner(){
   if(!currentPaper || currentPaper.section!=='math') return "";
   if(paperVerifyState==='running')
     return '<div class="config-warn no-print" style="background:#eff6ff;border-color:#bfdbfe;color:#1e40af">🔎 정답 자동 검증 중… (Claude가 각 문항을 직접 풀어 확인합니다. 잠시만요)</div>';
+  if(paperVerifyState==='fixing')
+    return '<div class="config-warn no-print" style="background:#eff6ff;border-color:#bfdbfe;color:#1e40af">🛠 정답이 어긋난 문항을 <b>자동으로 다시 출제해 교체</b>하는 중… (교체 후 다시 검증합니다)</div>';
   if(paperVerifyState==='done'){
     const flagged=(currentPaper.questions||[]).filter(q=>q._flag).length;
     if(flagged>0)
-      return '<div class="config-warn no-print">⚠️ <b>'+flagged+'문항</b>에서 AI 재풀이 정답이 시험지 정답과 <b>다릅니다</b>. 아래 <b>빨간 테두리</b> 문항을 확인하고 <b>🔄 비슷하게 새 문제</b>로 교체하세요. (문항 옆에 AI가 푼 답 표시)</div>';
+      return '<div class="config-warn no-print">⚠️ <b>'+flagged+'문항</b>은 자동 교체를 시도했지만 여전히 AI 재풀이 정답과 <b>다릅니다</b>. 아래 <b>빨간 테두리</b> 문항을 확인하고 <b>🔄 비슷하게 새 문제</b>로 다시 교체하세요.</div>';
+    if(paperFixInfo.replaced>0)
+      return '<div class="config-warn no-print" style="background:var(--teal-bg);border-color:#99f6e4;color:#0f766e">✅ 정답 자동 검증 완료 — 어긋난 <b>'+paperFixInfo.replaced+'문항</b>을 자동으로 다시 출제해 교체했고, 이제 모든 문항의 정답이 일치합니다.</div>';
     return '<div class="config-warn no-print" style="background:var(--teal-bg);border-color:#99f6e4;color:#0f766e">✅ 정답 자동 검증 완료 — 모든 문항의 정답이 일치합니다.</div>';
   }
   return "";
 }
-async function autoVerifyMath(paper){
-  if(!paper || paper.section!=='math' || !(paper.questions||[]).length) return;
-  paperVerifyState='running';
-  paper.questions.forEach(q=>{ delete q._flag; delete q._claudeAns; });
-  if(currentPaper===paper) renderPaper();   // "검증 중" 배너 표시
-  const qs=paper.questions, BATCH=6, batches=[];
+function paperVisible(){ const v=document.getElementById("view-paper"); return v && !v.classList.contains("hide"); }
+function stripInternalQ(q){ const {_flag,_claudeAns,...rest}=q; return rest; }
+// Claude가 문항들을 직접 풀어 정답 맵(vid→answer) 반환
+async function verifySolvePass(qs){
+  const BATCH=6, batches=[], results={};
   for(let i=0;i<qs.length;i+=BATCH) batches.push(qs.slice(i,i+BATCH).map((q,j)=>({q,vid:i+j})));
-  const results={};
-  try{
-    for(const items of batches){
+  for(const items of batches){
+    try{
       const body=items.map(it=>`[문항 vid=${it.vid}]\n${qaQText(it.q)}`).join("\n\n---\n\n");
       const prompt=`아래 SAT Math 문항들을 직접 끝까지 풀어 정답만 구하세요. 객관식이면 A/B/C/D 한 글자, grid-in이면 숫자/분수. 확신이 없으면 "?"로.\n\n${body}\n\n아래 JSON만 출력(백틱·설명 금지): {"results":[{"vid":0,"answer":"A"}]}`;
       const res=await fetch(ANALYZE_URL,{ method:"POST", headers:await fnHeaders(),
@@ -2716,13 +2721,85 @@ async function autoVerifyMath(paper){
       if(out.error) continue;
       const parsed=parseModelJSON(out.text||"");
       (parsed&&parsed.results||[]).forEach(r=>{ if(r&&r.vid!=null) results[r.vid]=r; });
+    }catch(_e){}
+  }
+  return results;
+}
+// 어긋난 한 문항을 같은 조건으로 새로 출제(제미나이) — 교체용 대체 문항 반환
+async function regenMathQuestion(paper, q, avoid){
+  try{
+    const r = await runGeneration({
+      section: paper.section, topics: paper.topics||[],
+      difficulty: q.difficulty || paper.difficulty || 'medium', count:1,
+      note:"정답이 반드시 보기 안에 있고, 풀이의 최종 답과 정답 표기·해설이 완전히 일치하도록 특히 주의해서 딱 한 문항만 출제하세요.",
+      variation:true, avoidStems:avoid
+    }, null);
+    return (r && r.questions && r.questions[0]) || null;
+  }catch(_e){ return null; }
+}
+// 적응형 모듈 배열을 평면 questions와 같은 객체로 다시 연결
+//  (저장본을 다시 열면 questions·modules가 서로 다른 사본이라, 교체분이 modules에 반영되도록)
+function reconcileModules(paper){
+  if(!paper.modules) return;
+  let pos=0;
+  for(const k of Object.keys(paper.modules)){
+    const len=(paper.modules[k]||[]).length;
+    paper.modules[k]=(paper.questions||[]).slice(pos, pos+len);
+    pos+=len;
+  }
+}
+// 교체 결과를 DB에 반영(같은 시험지 행 업데이트) — 저장된 시험지에만
+async function persistPaper(paper){
+  if(!paper.savedId) return;
+  reconcileModules(paper);
+  const upd={ questions: (paper.questions||[]).map(stripInternalQ) };
+  if(paper.modules){
+    upd.modules={};
+    for(const k of Object.keys(paper.modules)) upd.modules[k]=(paper.modules[k]||[]).map(stripInternalQ);
+  }
+  try{ await sb.from("problem_sets").update(upd).eq("id", paper.savedId); }catch(_e){}
+}
+async function autoVerifyMath(paper){
+  if(!paper || paper.section!=='math' || !(paper.questions||[]).length) return;
+  paperVerifyState='running'; paperFixInfo={ replaced:0, remaining:0 };
+  paper.questions.forEach(q=>{ delete q._flag; delete q._claudeAns; });
+  if(currentPaper===paper && paperVisible()) renderPaper();   // "검증 중" 배너
+  let avoid = (paper.questions||[]).map(avoidKeyOf).filter(Boolean);
+  const applyFlags=(results)=>{
+    let n=0;
+    paper.questions.forEach((q,idx)=>{ const r=results[idx];
+      if(r && r.answer && r.answer!=='?' && !qaMatch(q, r.answer)){ q._flag=true; q._claudeAns=r.answer; n++; }
+      else { delete q._flag; delete q._claudeAns; }
+    });
+    return n;
+  };
+  // 1차 검증
+  let flagged = applyFlags(await verifySolvePass(paper.questions));
+  // 자동 교체 루프 (어긋난 문항만 다시 출제 → 교체 → 재검증). 최대 2라운드.
+  const MAX_ROUNDS=2;
+  for(let round=0; round<MAX_ROUNDS && paper.questions.some(q=>q._flag); round++){
+    paperVerifyState='fixing';
+    if(currentPaper===paper && paperVisible()) renderPaper();
+    for(const q of paper.questions){
+      if(!q._flag) continue;
+      const nq = await regenMathQuestion(paper, q, avoid);
+      if(nq){
+        avoid.push(avoidKeyOf(nq));
+        const num=q.number;
+        // 같은 객체를 제자리 교체 → paper.modules(동일 참조)까지 함께 갱신
+        Object.keys(q).forEach(k=>delete q[k]);
+        Object.assign(q, nq, { number:num });
+        paperFixInfo.replaced++;
+      }
     }
-  }catch(_e){}
-  qs.forEach((q,idx)=>{ const r=results[idx];
-    if(r && r.answer && r.answer!=='?' && !qaMatch(q, r.answer)){ q._flag=true; q._claudeAns=r.answer; }
-  });
+    paperVerifyState='running';
+    if(currentPaper===paper && paperVisible()) renderPaper();
+    flagged = applyFlags(await verifySolvePass(paper.questions));
+  }
+  paperFixInfo.remaining = paper.questions.filter(q=>q._flag).length;
+  if(paperFixInfo.replaced>0) await persistPaper(paper);   // 교체분 저장
   paperVerifyState='done';
-  if(currentPaper===paper && !document.getElementById("view-paper").classList.contains("hide")) renderPaper();
+  if(currentPaper===paper && paperVisible()) renderPaper();
 }
 let qaRefText="";  // 선생님이 붙여넣은 공식 기준 문항(선택)
 // 공식 Digital SAT 규격 루브릭 (영역별)
