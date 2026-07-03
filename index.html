@@ -550,11 +550,38 @@
   .bb-back,.bb-next{border:none;border-radius:99px;font-size:14px;font-weight:700;padding:10px 26px;cursor:pointer;font-family:inherit}
   .bb-back{background:#e2e8f0;color:var(--ink2)}
   .bb-next{background:#1d4ed8;color:#fff}
-  .bb-calc{position:fixed;top:70px;left:14px;width:min(420px,46vw);height:70vh;z-index:50;background:#fff;border:1px solid #cbd5e1;
+  .bb-calc{position:fixed;top:70px;left:14px;width:min(420px,46vw);height:70vh;min-width:280px;min-height:260px;z-index:50;background:#fff;border:1px solid #cbd5e1;
     border-radius:12px;box-shadow:0 20px 50px -16px rgba(15,23,42,.5);display:flex;flex-direction:column;overflow:hidden}
-  .bb-calc-head{display:flex;align-items:center;justify-content:space-between;background:#0f172a;color:#fff;padding:8px 12px;font-size:13px;font-weight:700}
+  .bb-calc-head{display:flex;align-items:center;justify-content:space-between;background:#0f172a;color:#fff;padding:8px 12px;font-size:13px;font-weight:700;cursor:move;user-select:none;touch-action:none}
   .bb-calc-x{background:rgba(255,255,255,.15);border:none;color:#fff;width:24px;height:24px;border-radius:6px;cursor:pointer}
   .bb-calc iframe{flex:1;border:none;width:100%}
+  .bb-calc-rz{position:absolute;right:0;bottom:0;width:20px;height:20px;cursor:nwse-resize;z-index:3;touch-action:none;
+    background:linear-gradient(135deg,transparent 45%,#94a3b8 45%,#94a3b8 55%,transparent 55%,transparent 70%,#94a3b8 70%,#94a3b8 80%,transparent 80%)}
+  .bb-calc-hint{font-size:10.5px;font-weight:600;opacity:.6;margin-right:6px}
+  /* 모듈 끝 검토 화면(Bluebook식 문항 번호 점검) */
+  .bb-review{position:fixed;inset:0;z-index:70;background:rgba(15,23,42,.55);display:flex;align-items:center;justify-content:center;padding:20px;overflow:auto}
+  .bb-review .rv-inner{background:#fff;border-radius:16px;max-width:680px;width:100%;padding:26px 26px 22px;box-shadow:0 30px 70px -20px rgba(15,23,42,.6)}
+  .rv-head{display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap}
+  .rv-title{font-size:19px;font-weight:800;color:var(--ink)}
+  .rv-timer{font-size:14px;color:var(--ink2)} .rv-timer b{color:var(--ink)}
+  .rv-sub{font-size:13px;color:var(--mut);margin-top:4px}
+  .rv-legend{display:flex;gap:14px;flex-wrap:wrap;margin:14px 0 6px;font-size:12px;color:var(--ink2)}
+  .rv-legend span{display:inline-flex;align-items:center;gap:6px}
+  .rv-legend span::before{content:"";width:14px;height:14px;border-radius:4px;border:1.5px solid #cbd5e1;background:#fff}
+  .rv-legend .lg-done::before{background:#1d4ed8;border-color:#1d4ed8}
+  .rv-legend .lg-unans::before{background:#fff;border-style:dashed}
+  .rv-legend .lg-mark::before{content:none}
+  .rv-msg{font-size:13.5px;color:var(--ink2);margin:8px 0 14px;background:#f8fafc;border:1px solid var(--line);border-radius:10px;padding:10px 12px}
+  .rv-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(52px,1fr));gap:10px;margin-bottom:20px}
+  .rv-cell{position:relative;aspect-ratio:1;border:1.5px dashed #cbd5e1;background:#fff;color:var(--ink);border-radius:10px;font-weight:700;font-size:15px;cursor:pointer;transition:.12s}
+  .rv-cell:hover{border-color:#1d4ed8;box-shadow:0 0 0 3px #dbeafe}
+  .rv-cell.done{background:#1d4ed8;border-style:solid;border-color:#1d4ed8;color:#fff}
+  .rv-cell.mark{border-color:#e11d48}
+  .rv-cell .rv-mk{position:absolute;top:-8px;right:-6px;font-size:13px}
+  .rv-actions{display:flex;justify-content:space-between;gap:12px;flex-wrap:wrap}
+  .rv-btn{border:none;border-radius:11px;padding:13px 22px;font-size:15px;font-weight:800;cursor:pointer;font-family:inherit}
+  .rv-btn.ghost{background:#e2e8f0;color:var(--ink2)}
+  .rv-btn.primary{background:#0f172a;color:#fff;flex:1;min-width:180px}
   .bb-modal{position:fixed;inset:0;z-index:60;background:rgba(15,23,42,.5);display:flex;align-items:center;justify-content:center;padding:20px}
   .bb-modal-card{background:#fff;border-radius:14px;max-width:560px;width:100%;max-height:84vh;overflow:auto;padding:20px}
   .bb-modal-head{display:flex;align-items:center;justify-content:space-between;margin-bottom:14px}
@@ -3653,10 +3680,44 @@ function startModuleTimer(sec){
   EX.remain=sec;
   EX.timer=setInterval(()=>{ EX.remain--; const t=document.getElementById("examTimer");
     if(t) t.textContent=fmtTime(Math.max(0,EX.remain));
+    const rt=document.getElementById("rvTimer"); if(rt) rt.textContent=fmtTime(Math.max(0,EX.remain));
     if(EX.remain<=0){ clearInterval(EX.timer); EX.timer=null; onExamTimeUp(); } }, 1000);
 }
 function onExamTimeUp(){ if(EX.adaptive && EX.module===1) finishModule1(true); else submitExam(true); }
-function examEndAction(){ if(EX.adaptive && EX.module===1) confirmFinishModule1(); else confirmSubmitExam(); }
+function examEndAction(){ showExamReview(); }
+// 모듈 마지막 문제 다음 → 전체 문항 번호 점검 화면(Bluebook식). 여기서 최종 제출.
+function showExamReview(){
+  document.getElementById("examNavPop")?.classList.add("hide"); EX.navOpen=false;
+  const m=document.getElementById("moreMenu"); if(m) m.classList.add("hide");
+  const isM1 = EX.adaptive && EX.module===1;
+  const total=EX.qs.length;
+  const answered=EX.qs.filter((q,i)=>EX.answers[i]!==undefined && String(EX.answers[i]).length>0).length;
+  const grid=EX.qs.map((q,i)=>{
+    const isAns=EX.answers[i]!==undefined && String(EX.answers[i]).length>0;
+    const cls='rv-cell '+(isAns?'done':'unans')+(EX.marks[i]?' mark':'');
+    return `<button class="${cls}" onclick="reviewJump(${i})">${i+1}${EX.marks[i]?'<span class="rv-mk">🔖</span>':''}</button>`;
+  }).join("");
+  let ov=document.getElementById("examReview");
+  if(!ov){ ov=document.createElement("div"); ov.id="examReview"; ov.className="bb-review"; document.getElementById("view-exam").appendChild(ov); }
+  ov.innerHTML=`<div class="rv-inner">
+    <div class="rv-head">
+      <div class="rv-title">검토 · Check Your Work</div>
+      <div class="rv-timer">남은 시간 <b id="rvTimer">${fmtTime(Math.max(0,EX.remain))}</b></div>
+    </div>
+    <div class="rv-sub">${esc(EX.info.secLabel||"")}${EX.adaptive?(" · Module "+EX.module):""} · 총 ${total}문항 · 답함 ${answered} / 미답 ${total-answered}</div>
+    <div class="rv-legend"><span class="lg-done">답함</span><span class="lg-unans">안 함</span><span class="lg-mark">🔖 표시함</span></div>
+    <div class="rv-msg">${answered<total
+        ? '아직 <b>'+(total-answered)+'문항</b>이 비어 있어요. 번호를 눌러 돌아가 확인하세요.'
+        : '모든 문항에 답했습니다. 번호를 눌러 최종 점검할 수 있어요.'}</div>
+    <div class="rv-grid">${grid}</div>
+    <div class="rv-actions">
+      <button class="rv-btn ghost" onclick="reviewBack()">← 문제로 돌아가기</button>
+      <button class="rv-btn primary" onclick="${isM1?'finishModule1(false)':'submitExam(false)'}">${isM1?'모듈 2로 넘어가기 →':'시험 제출'}</button>
+    </div>
+  </div>`;
+}
+function reviewBack(){ const ov=document.getElementById("examReview"); if(ov) ov.remove(); }
+function reviewJump(i){ const ov=document.getElementById("examReview"); if(ov) ov.remove(); EX.idx=i; renderExamQuestion(); window.scrollTo(0,0); }
 function confirmFinishModule1(){
   const un=EX.qs.filter((q,i)=>!(EX.answers[i]!==undefined && String(EX.answers[i]).length>0)).length;
   const msg=(un?("아직 "+un+"문항이 비어 있습니다. "):"")+"모듈 1을 제출하고 모듈 2로 넘어갈까요? 모듈 1로는 돌아올 수 없습니다.";
@@ -3721,8 +3782,9 @@ function renderExamShell(){
       </div>
     </div>
     <div id="calcPanel" class="bb-calc hide">
-      <div class="bb-calc-head"><span>Calculator</span><div><button class="bb-calc-x" onclick="toggleCalc()">✕</button></div></div>
+      <div class="bb-calc-head" id="calcHead"><span>🖩 Calculator</span><div style="display:flex;align-items:center"><span class="bb-calc-hint">드래그 이동 · 모서리 크기조절</span><button class="bb-calc-x" onclick="toggleCalc()">✕</button></div></div>
       <iframe id="calcFrame" title="Calculator" loading="lazy"></iframe>
+      <div class="bb-calc-rz" id="calcResize" title="크기 조절"></div>
     </div>
     <div id="refModal" class="bb-modal hide" onclick="if(event.target===this)closeRef()">
       <div class="bb-modal-card">
@@ -3732,13 +3794,50 @@ function renderExamShell(){
     </div>
     <div id="moreMenu" class="bb-more hide">
       <button onclick="toggleTimer();toggleMore()">타이머 숨기기 / 표시</button>
-      <button onclick="toggleMore();confirmSubmitExam()">시험 제출</button>
+      <button onclick="toggleMore();showExamReview()">검토 · 시험 제출</button>
     </div>
     <div class="exam-navpop hide" id="examNavPop"></div>`;
   if(EX.menuClose) document.removeEventListener("click", EX.menuClose);
   EX.menuClose=(e)=>{ const m=document.getElementById("moreMenu");
     if(m && !m.classList.contains("hide") && !m.contains(e.target) && !e.target.closest(".bb-right")) m.classList.add("hide"); };
   setTimeout(()=>document.addEventListener("click", EX.menuClose),0);
+  initCalcDragResize();
+}
+// 계산기 패널 이동(헤더 드래그) + 크기조절(우하단 핸들). 마우스·터치 모두 지원.
+function initCalcDragResize(){
+  const panel=document.getElementById("calcPanel"), head=document.getElementById("calcHead"),
+        rz=document.getElementById("calcResize"), frame=document.getElementById("calcFrame");
+  if(!panel||!head||!rz) return;
+  let mode=null, sx=0, sy=0, ox=0, oy=0, ow=0, oh=0;
+  const pt=(e)=> e.touches&&e.touches[0] ? e.touches[0] : e;
+  const onMove=(e)=>{
+    const t=pt(e), cx=t.clientX, cy=t.clientY;
+    if(mode==='drag'){
+      let nx=ox+(cx-sx), ny=oy+(cy-sy);
+      nx=Math.max(4, Math.min(window.innerWidth - 60, nx));
+      ny=Math.max(4, Math.min(window.innerHeight - 40, ny));
+      panel.style.left=nx+"px"; panel.style.top=ny+"px"; panel.style.right="auto";
+    } else if(mode==='resize'){
+      let nw=Math.max(280, ow+(cx-sx)), nh=Math.max(260, oh+(cy-sy));
+      nw=Math.min(nw, window.innerWidth - (ox+8)); nh=Math.min(nh, window.innerHeight - (oy+8));
+      panel.style.width=nw+"px"; panel.style.height=nh+"px";
+    }
+    if(e.cancelable) e.preventDefault();
+  };
+  const onUp=()=>{ mode=null; if(frame) frame.style.pointerEvents="";
+    document.removeEventListener("mousemove",onMove); document.removeEventListener("mouseup",onUp);
+    document.removeEventListener("touchmove",onMove); document.removeEventListener("touchend",onUp); };
+  const start=(m)=>(e)=>{
+    if(m==='drag' && e.target.closest(".bb-calc-x")) return;   // ✕ 클릭은 드래그 아님
+    mode=m; const t=pt(e); sx=t.clientX; sy=t.clientY;
+    const r=panel.getBoundingClientRect(); ox=r.left; oy=r.top; ow=r.width; oh=r.height;
+    if(frame) frame.style.pointerEvents="none";   // 드래그 중 iframe이 마우스를 삼키지 않게
+    if(e.cancelable) e.preventDefault();
+    document.addEventListener("mousemove",onMove); document.addEventListener("mouseup",onUp);
+    document.addEventListener("touchmove",onMove,{passive:false}); document.addEventListener("touchend",onUp);
+  };
+  head.onmousedown=start('drag'); head.ontouchstart=start('drag');
+  rz.onmousedown=start('resize'); rz.ontouchstart=start('resize');
 }
 
 function renderExamQuestion(){
@@ -3843,7 +3942,7 @@ function toggleExamNav(){
       const answered=EX.answers[i]!==undefined && String(EX.answers[i]).length>0;
       const cls=(i===EX.idx?'cur ':'')+(answered?'done ':'')+(EX.marks[i]?'mark':'');
       return `<button class="${cls}" onclick="examJump(${i})">${i+1}</button>`;
-    }).join("")+'</div><button class="btn btn-primary" style="margin-top:12px" onclick="'+(EX.adaptive&&EX.module===1?'confirmFinishModule1':'confirmSubmitExam')+'()">'+(EX.adaptive&&EX.module===1?'모듈 1 제출':'시험 제출')+'</button>';
+    }).join("")+'</div><button class="btn btn-primary" style="margin-top:12px" onclick="showExamReview()">'+(EX.adaptive&&EX.module===1?'모듈 1 검토 · 제출':'검토 · 시험 제출')+'</button>';
   }
 }
 function examJump(i){ EX.idx=i; document.getElementById("examNavPop").classList.add("hide"); EX.navOpen=false; renderExamQuestion(); window.scrollTo(0,0); }
