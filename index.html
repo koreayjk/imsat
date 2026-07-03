@@ -2607,7 +2607,7 @@ async function generateAdaptive(){
     navOrigin = genStudent ? "student" : "generate";
     renderPaper();
     show("paper");
-    if(genSection==='math') autoVerifyMath(currentPaper);   // 수학: 정답 자동 검증(백그라운드)
+    autoVerifyMath(currentPaper);   // 수학·R&W 모두 정답 자동 검증·교체(백그라운드)
   }catch(e){
     errBox.innerHTML='<div class="err">적응형 생성에 실패했습니다.<br><span class="muted">'+esc(String(e.message||e))+'</span></div>';
   }finally{
@@ -2764,7 +2764,7 @@ function qaMatch(q, claudeAns){
 let paperVerifyState = null;   // null | 'running' | 'fixing' | 'done'
 let paperFixInfo = { replaced:0, remaining:0 };
 function autoVerifyBanner(){
-  if(!currentPaper || currentPaper.section!=='math') return "";
+  if(!currentPaper || !(currentPaper.section==='math'||currentPaper.section==='rw')) return "";
   if(paperVerifyState==='running')
     return '<div class="config-warn no-print" style="background:#eff6ff;border-color:#bfdbfe;color:#1e40af">🔎 정답 자동 검증 중… (Claude가 각 문항을 직접 풀어 확인합니다. 잠시만요)</div>';
   if(paperVerifyState==='fixing')
@@ -2791,14 +2791,17 @@ function looksLikeMath(q){
   if(String(q.passage||"").trim().length>80) return false;   // 긴 지문 = R&W 신호
   return true;
 }
-// Claude가 문항들을 직접 풀어 정답 맵(vid→answer) 반환
-async function verifySolvePass(qs){
+// Claude가 문항들을 직접 풀어 정답 맵(vid→answer) 반환 (영역별 풀이 지시)
+async function verifySolvePass(qs, section){
+  const isMath = section==='math';
   const BATCH=6, batches=[], results={};
   for(let i=0;i<qs.length;i+=BATCH) batches.push(qs.slice(i,i+BATCH).map((q,j)=>({q,vid:i+j})));
   for(const items of batches){
     try{
       const body=items.map(it=>`[문항 vid=${it.vid}]\n${qaQText(it.q)}`).join("\n\n---\n\n");
-      const prompt=`아래 SAT Math 문항들을 직접 끝까지 풀어 정답만 구하세요. 객관식이면 A/B/C/D 한 글자, grid-in이면 숫자/분수. 확신이 없으면 "?"로.\n\n${body}\n\n아래 JSON만 출력(백틱·설명 금지): {"results":[{"vid":0,"answer":"A"}]}`;
+      const prompt= isMath
+        ? `아래 SAT Math 문항들을 직접 끝까지 풀어 정답만 구하세요. 객관식이면 A/B/C/D 한 글자, grid-in이면 숫자/분수. 확신이 없으면 "?"로.\n\n${body}\n\n아래 JSON만 출력(백틱·설명 금지): {"results":[{"vid":0,"answer":"A"}]}`
+        : `아래 SAT Reading & Writing 문항들을 지문과 문맥·논리에 근거해 풀어, 각 문항의 가장 적절한 정답 하나만 고르세요. A/B/C/D 한 글자만. 지문 근거로 정답을 하나로 확정할 수 없거나(정답이 둘 이상/없음, 발문·선택지가 모호) 억지로 골라야 하면 "?"로 표시하세요(추측 금지).\n\n${body}\n\n아래 JSON만 출력(백틱·설명 금지): {"results":[{"vid":0,"answer":"A"}]}`;
       const res=await fetch(ANALYZE_URL,{ method:"POST", headers:await fnHeaders(),
         body:JSON.stringify({ max_tokens:Math.min(4000, 350*items.length+800), messages:[{role:"user",content:[{type:"text",text:prompt}]}] }) });
       const out=await res.json().catch(()=>({error:1}));
@@ -2844,7 +2847,7 @@ async function persistPaper(paper){
   try{ await sb.from("problem_sets").update(upd).eq("id", paper.savedId); }catch(_e){}
 }
 async function autoVerifyMath(paper){
-  if(!paper || paper.section!=='math' || !(paper.questions||[]).length) return;
+  if(!paper || !(paper.section==='math'||paper.section==='rw') || !(paper.questions||[]).length) return;
   paperVerifyState='running'; paperFixInfo={ replaced:0, remaining:0, banked:0 };
   paper.questions.forEach(q=>{ delete q._flag; delete q._claudeAns; });
   if(currentPaper===paper && paperVisible()) renderPaper();   // "검증 중" 배너
@@ -2860,7 +2863,7 @@ async function autoVerifyMath(paper){
     return n;
   };
   // 1차 검증
-  let flagged = applyFlags(await verifySolvePass(paper.questions));
+  let flagged = applyFlags(await verifySolvePass(paper.questions, paper.section));
   // 자동 교체 루프 (어긋난 문항만 다시 출제 → 교체 → 재검증). 최대 2라운드.
   const MAX_ROUNDS=2;
   for(let round=0; round<MAX_ROUNDS && paper.questions.some(q=>q._flag); round++){
@@ -2880,7 +2883,7 @@ async function autoVerifyMath(paper){
     }
     paperVerifyState='running';
     if(currentPaper===paper && paperVisible()) renderPaper();
-    flagged = applyFlags(await verifySolvePass(paper.questions));
+    flagged = applyFlags(await verifySolvePass(paper.questions, paper.section));
   }
   paperFixInfo.remaining = paper.questions.filter(q=>q._flag).length;
   if(paperFixInfo.replaced>0) await persistPaper(paper);   // 교체분 저장
@@ -3224,7 +3227,7 @@ async function openProblemSet(id, origin){
     else paperReturn=showDashboard;
   }
   renderPaper();
-  if(currentPaper.section==='math') autoVerifyMath(currentPaper);   // 수학 시험지는 열 때 자동 검증
+  autoVerifyMath(currentPaper);   // 수학·R&W 시험지 모두 열 때 자동 검증·교체
 }
 async function deleteProblemSet(id){
   if(!confirm("이 시험지를 삭제할까요? 되돌릴 수 없습니다.")) return;
