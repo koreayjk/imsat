@@ -2172,6 +2172,18 @@ const DIFF_GUIDE = {
   Hard:"다단계 추론·미묘한 구분, 매우 매력적인 오답, 고난도 어휘/복잡한 식.",
   "혼합":"쉬움~어려움을 고르게 섞되 각 문항의 difficulty 필드에 실제 난이도를 정확히 표기."
 };
+// 공식 Digital SAT 규격을 그대로 반영한 오리지널 예시(스타일 앵커).
+//  ⚠️ College Board·사설 문항을 복사한 것이 아니라, 형식·난이도·선택지 설계를
+//  가르치기 위해 새로 작성한 예시입니다. 모델에겐 "이 수준으로 새로 창작"하라고만 지시.
+function styleAnchor(isMath){
+  return isMath ? `[실전 규격 예시 — 문체·난이도·선택지 설계를 이 수준으로 맞추되, 절대 그대로 베끼지 말고 완전히 새 문항을 창작하세요]
+· 예시1(Algebra, medium, mc): {"skill":"Linear equations in one variable","difficulty":"medium","format":"mc","stem":"If \\\\(3(x-4)=2x+5\\\\), what is the value of \\\\(x\\\\)?","choices":{"A":"-7","B":"1","C":"9","D":"17"},"answer":"D","explanation":"전개하면 \\\\(3x-12=2x+5\\\\), 정리하면 \\\\(x=17\\\\).","distractors":{"A":"부호를 반대로 이항","B":"상수만 계산","C":"12를 더하지 않음"}}
+· 예시2(Data Analysis, medium, grid): {"skill":"Percentages","difficulty":"medium","format":"grid","stem":"A jacket originally priced at $80 is discounted by 15%. What is the sale price, in dollars, of the jacket?","answer":"68","explanation":"할인액 \\\\(80\\\\times0.15=12\\\\), 판매가 \\\\(80-12=68\\\\)."}
+· 예시3(Advanced Math, hard, mc): {"skill":"Quadratic functions","difficulty":"hard","format":"mc","stem":"The function \\\\(f\\\\) is defined by \\\\(f(x)=x^2-6x+11\\\\). What is the minimum value of \\\\(f(x)\\\\)?","choices":{"A":"2","B":"3","C":"6","D":"11"},"answer":"A","explanation":"완전제곱 \\\\(f(x)=(x-3)^2+2\\\\), 최솟값은 \\\\(x=3\\\\)일 때 2.","distractors":{"B":"꼭짓점의 x좌표","C":"일차항 계수","D":"상수항"}}`
+  : `[실전 규격 예시 — 지문 길이·문체·발문·선택지 설계를 이 수준으로 맞추되, 절대 그대로 베끼지 말고 완전히 새 지문·문항을 창작하세요]
+· 예시1(Words in Context, medium): {"skill":"Words in Context","difficulty":"medium","format":"mc","passage":"Marine biologist Ayana Johnson notes that coral reefs, though they cover less than one percent of the ocean floor, ______ an outsized share of its biodiversity: roughly a quarter of all marine species depend on them.","stem":"Which choice completes the text with the most logical and precise word or phrase?","choices":{"A":"harbor","B":"conceal","C":"deplete","D":"mimic"},"answer":"A","explanation":"뒤 문장이 '해양 생물의 1/4이 산호초에 의존'이라는 근거를 제시하므로 '품다(harbor)'가 정확.","distractors":{"B":"숨긴다 — 문맥과 반대","C":"고갈시킨다 — 근거와 모순","D":"흉내낸다 — 무관"}}
+· 예시2(Command of Evidence, medium): {"skill":"Command of Evidence (Textual)","difficulty":"medium","format":"mc","passage":"In a 2018 study, archaeologist Lucia Ferrara argued that a set of clay tokens found at an ancient trading post were used for accounting rather than decoration. She noted that the tokens' shapes corresponded to specific trade goods recorded in nearby written tablets.","stem":"Which finding, if true, would most directly support Ferrara's argument?","choices":{"A":"The tokens were made from clay sourced far from the trading post.","B":"Tokens of the same shape are consistently found alongside records of the same goods.","C":"Some tokens were painted in bright, decorative colors.","D":"The written tablets were produced centuries after the tokens."},"answer":"B","explanation":"토큰 모양과 거래 품목 기록의 일관된 대응은 '회계용'이라는 주장을 직접 뒷받침.","distractors":{"A":"산지는 용도와 무관","C":"오히려 장식용 근거","D":"연대 불일치로 주장 약화"}}`;
+}
 function buildGenPrompt(secLabel, topicStr, count, diffLabel, note, weakNote, avoidText, genreHint){
   const isMath = /math/i.test(secLabel);
   const sectionSpec = isMath ? `
@@ -2225,6 +2237,7 @@ ${weakNote?("학생이 반복적으로 약한 유형(집중 공략): "+weakNote+
 - 순서: (1) 문제를 실제로 끝까지 풀어 "정답 값"을 먼저 확정 → (2) 그 값을 반드시 choices 중 하나로 넣고 → (3) answer를 그 선택지 문자로 지정 → (4) explanation의 최종 답이 그 선택지 값과 정확히 같은지 확인.
 - explanation에서 계산한 최종 숫자/식이 정답 선택지의 값과 **다르면 절대 안 됩니다**(예: 해설은 16인데 보기에 16이 없거나 정답을 14로 표기 → 금지). 출력 전에 각 문항을 스스로 재검산하여 answer·choices·explanation이 완전히 일치하는지 검증하세요.
 ${genreHint?(genreHint+"\n"):""}${sectionSpec}
+${styleAnchor(isMath)}
 ${avoidText?("\n[중복 금지 — 매우 중요] 아래는 이미 출제된 문항들의 발문 일부입니다. 이들과 지문·소재·상황·숫자·정답 시나리오가 절대 겹치지 않도록, 전혀 다른 새 문제만 만드세요. 같은 주제·소재를 살짝 바꾼 변형도 금지:\n- "+avoidText+"\n"):""}
 [이 묶음 내부 중복 금지] 이번에 만드는 ${count}문항끼리도 서로 지문 소재·주제·상황·등장인물·핵심 숫자가 겹치면 안 됩니다. 각 문항이 완전히 다른 소재여야 합니다.
 [그림/도표 — 절대 ASCII로 그리지 말 것]
@@ -2380,13 +2393,25 @@ async function runGeneration(opts, btn){
   const topicStr=(topics&&topics.length)? topics.join(", ") : "영역 전반";
   // 수학은 LaTeX+한국어 해설로 출력이 길어 잘리기 쉬움 → 더 작은 묶음
   const BATCH=isMath?3:5;
-  const batches=[]; let rem=count; while(rem>0){ batches.push(Math.min(BATCH,rem)); rem-=BATCH; }
+  // 문제은행에서 검증된 문항을 먼저 채우고, 부족분만 새로 생성 (쓸수록 검증 문항이 쌓여 품질 누적)
+  let banked=[];
+  if(!opts.noBank){
+    try{
+      const exclude=(Array.isArray(opts.avoidStems)?opts.avoidStems:[]).filter(Boolean).slice(-200);
+      const want=Math.min(count, Math.floor(count*0.5));   // 한 묶음의 최대 절반까지만 재사용(변별력 유지)
+      banked = await drawFromBank(section, difficulty, want, exclude);
+    }catch(_e){ banked=[]; }
+  }
+  const genCount=Math.max(0, count - banked.length);
+  const batches=[]; let rem=genCount; while(rem>0){ batches.push(Math.min(BATCH,rem)); rem-=BATCH; }
   // 콘텐츠 분야(지문 소재/수학 도메인) — 묶음마다 시작 분야를 돌려 전체가 한쪽(특히 과학)에 쏠리지 않게
   const RW_DOMAINS=["문학(소설·시·희곡 발췌)","역사·사회과학(건국문서·연설·역사적 사건·경제/사회 연구)","인문학(예술·철학·음악·문화 비평)","자연과학(생물·화학·물리·지구과학)"];
   const MATH_DOMAINS=["Algebra(1차식·연립방정식·부등식)","Advanced Math(2차·다항·지수·함수)","Problem-Solving & Data Analysis(비율·백분율·통계·확률·데이터 해석)","Geometry & Trigonometry(도형·각·넓이·삼각비·원)"];
   const topicsBroad = !(topics&&topics.length);
-  // 중복 회피용 발문 목록(이전 시험지 + 이번에 생성된 것 누적)
+  // 중복 회피용 발문 목록(이전 시험지 + 은행 인출분 + 이번에 생성된 것 누적)
   let avoid = Array.isArray(opts.avoidStems) ? [...opts.avoidStems] : [];
+  banked.forEach(q=>{ if(q) avoid.push(avoidKeyOf(q)); });
+  avoid=avoid.filter(Boolean);
   let all=[], title=null, genHadError="";
   for(let bi=0; bi<batches.length; bi++){
     const bn=batches[bi];
@@ -2448,6 +2473,8 @@ async function runGeneration(opts, btn){
     data.questions.forEach(q=>{ if(typeof q==='object'&&q){ avoid.push(avoidKeyOf(q)); } });
     avoid=avoid.filter(Boolean);
   }
+  // 은행에서 인출한 검증 문항을 앞에 합친다
+  if(banked.length) all = banked.concat(all);
   // 일부 묶음이 실패해 부족하면, 모자란 만큼 한 번 더 보충 시도
   if(all.length>0 && all.length<count){
     const need=Math.min(count-all.length, isMath?3:5);
@@ -2699,9 +2726,10 @@ function autoVerifyBanner(){
     const flagged=(currentPaper.questions||[]).filter(q=>q._flag).length;
     if(flagged>0)
       return '<div class="config-warn no-print">⚠️ <b>'+flagged+'문항</b>은 자동 교체를 시도했지만 여전히 AI 재풀이 정답과 <b>다릅니다</b>. 아래 <b>빨간 테두리</b> 문항을 확인하고 <b>🔄 비슷하게 새 문제</b>로 다시 교체하세요.</div>';
+    const bankNote = paperFixInfo.banked>0 ? ' <span class="muted">· 검증 문항 '+paperFixInfo.banked+'개를 문제은행에 적립했습니다(다음 출제 때 재사용).</span>' : '';
     if(paperFixInfo.replaced>0)
-      return '<div class="config-warn no-print" style="background:var(--teal-bg);border-color:#99f6e4;color:#0f766e">✅ 정답 자동 검증 완료 — 어긋난 <b>'+paperFixInfo.replaced+'문항</b>을 자동으로 다시 출제해 교체했고, 이제 모든 문항의 정답이 일치합니다.</div>';
-    return '<div class="config-warn no-print" style="background:var(--teal-bg);border-color:#99f6e4;color:#0f766e">✅ 정답 자동 검증 완료 — 모든 문항의 정답이 일치합니다.</div>';
+      return '<div class="config-warn no-print" style="background:var(--teal-bg);border-color:#99f6e4;color:#0f766e">✅ 정답 자동 검증 완료 — 어긋난 <b>'+paperFixInfo.replaced+'문항</b>을 자동으로 다시 출제해 교체했고, 이제 모든 문항의 정답이 일치합니다.'+bankNote+'</div>';
+    return '<div class="config-warn no-print" style="background:var(--teal-bg);border-color:#99f6e4;color:#0f766e">✅ 정답 자동 검증 완료 — 모든 문항의 정답이 일치합니다.'+bankNote+'</div>';
   }
   return "";
 }
@@ -2761,7 +2789,7 @@ async function persistPaper(paper){
 }
 async function autoVerifyMath(paper){
   if(!paper || paper.section!=='math' || !(paper.questions||[]).length) return;
-  paperVerifyState='running'; paperFixInfo={ replaced:0, remaining:0 };
+  paperVerifyState='running'; paperFixInfo={ replaced:0, remaining:0, banked:0 };
   paper.questions.forEach(q=>{ delete q._flag; delete q._claudeAns; });
   if(currentPaper===paper && paperVisible()) renderPaper();   // "검증 중" 배너
   let avoid = (paper.questions||[]).map(avoidKeyOf).filter(Boolean);
@@ -2800,6 +2828,51 @@ async function autoVerifyMath(paper){
   if(paperFixInfo.replaced>0) await persistPaper(paper);   // 교체분 저장
   paperVerifyState='done';
   if(currentPaper===paper && paperVisible()) renderPaper();
+  // 검증 통과 문항을 문제은행에 적립 → 다음 출제 때 재사용
+  paperFixInfo.banked = await depositToBank(paper);
+  if(currentPaper===paper && paperVisible()) renderPaper();
+}
+// ---------- 검증 문제은행: 적립(deposit) / 인출(draw) ----------
+let _uidCache=null;
+async function currentUid(){
+  if(_uidCache) return _uidCache;
+  try{ const { data } = await sb.auth.getUser(); _uidCache=(data&&data.user&&data.user.id)||null; return _uidCache; }
+  catch(_e){ return null; }
+}
+// 검증 통과(빨간 플래그 없는) 문항을 은행에 적립. 반환: 새로 적립된 문항 수
+async function depositToBank(paper){
+  try{
+    if(!paper || !(paper.questions||[]).length) return 0;
+    const uid = await currentUid(); if(!uid) return 0;
+    const clean=(paper.questions||[]).filter(q=>q && !q._flag && (q.stem||q.choices));
+    if(!clean.length) return 0;
+    const rows=clean.map(q=>{
+      const c=q.choices||{}; const hasCh=["A","B","C","D"].some(k=>c[k]!==undefined);
+      return { teacher_id:uid, org_id:paper.orgId||null, section:paper.section,
+        domain:q.skill||null, difficulty:q.difficulty||paper.difficulty||null,
+        format:(q.format==='grid'||!hasCh)?'grid':'mc',
+        qkey:avoidKeyOf(q), question:stripInternalQ(q), verified:true };
+    }).filter(r=>r.qkey);
+    if(!rows.length) return 0;
+    const { data, error } = await sb.from("item_bank")
+      .upsert(rows, { onConflict:"teacher_id,qkey", ignoreDuplicates:true }).select("id");
+    if(error) return 0;   // 테이블 미생성 등 → 조용히 무시
+    return (data||[]).length;
+  }catch(_e){ return 0; }
+}
+// 은행에서 검증 문항을 인출. 반환: 문항 객체 배열(최대 want개)
+async function drawFromBank(section, difficulty, want, excludeKeys){
+  try{
+    if(!(want>0)) return [];
+    const { data, error } = await sb.rpc("bank_draw", {
+      p_section: section,
+      p_difficulty: (difficulty && difficulty!=='mixed') ? difficulty : null,
+      p_limit: want,
+      p_exclude: (excludeKeys && excludeKeys.length) ? excludeKeys : null
+    });
+    if(error) return [];
+    return (data||[]).map(r=>r&&r.question).filter(q=>q && (q.stem||q.choices));
+  }catch(_e){ return []; }
 }
 let qaRefText="";  // 선생님이 붙여넣은 공식 기준 문항(선택)
 // 공식 Digital SAT 규격 루브릭 (영역별)
