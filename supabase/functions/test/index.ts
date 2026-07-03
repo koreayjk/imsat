@@ -39,12 +39,66 @@ function scaledSection(correct,total,route){ const p=total?correct/total:0;
   return route==="hard" ? Math.round(Math.min(800,400+p*400)) : Math.round(Math.min(620,200+p*420)); }
 
 async function callAnthropic({system,messages,max_tokens}){
-  const res=await fetch("https://api.anthropic.com/v1/messages",{method:"POST",
-    headers:{"x-api-key":ANTHROPIC_API_KEY,"anthropic-version":"2023-06-01","content-type":"application/json"},
-    body:JSON.stringify({model:CLAUDE_MODEL,max_tokens:max_tokens||4000,...(system?{system}:{}),messages})});
-  const d=await res.json(); if(!res.ok) throw new Error(d?.error?.message||("Anthropic "+res.status));
-  return (d.content||[]).filter(b=>b.type==="text").map(b=>b.text).join(""); }
-function parseJSON(raw){ let t=String(raw||"").replace(/```json|```/g,"").trim(); const s=t.indexOf("{"),e=t.lastIndexOf("}"); if(s>=0&&e>s) t=t.slice(s,e+1); return JSON.parse(t); }
+  let lastErr="";
+  for(let attempt=0; attempt<4; attempt++){
+    if(attempt>0) await new Promise(r=>setTimeout(r, 800*Math.pow(2,attempt-1)));   // 0.8s,1.6s,3.2s
+    try{
+      const res=await fetch("https://api.anthropic.com/v1/messages",{method:"POST",
+        headers:{"x-api-key":ANTHROPIC_API_KEY,"anthropic-version":"2023-06-01","content-type":"application/json"},
+        body:JSON.stringify({model:CLAUDE_MODEL,max_tokens:max_tokens||4000,...(system?{system}:{}),messages})});
+      if(res.status===429||res.status===529||res.status>=500){ lastErr="Anthropic "+res.status+" (혼잡)"; continue; }  // 과부하 → 재시도
+      const d=await res.json();
+      if(!res.ok){ lastErr=d?.error?.message||("Anthropic "+res.status); continue; }
+      return (d.content||[]).filter(b=>b.type==="text").map(b=>b.text).join("");
+    }catch(e){ lastErr=String(e?.message||e); }   // 네트워크 → 재시도
+  }
+  throw new Error(lastErr||"Anthropic 호출 실패");
+}
+// JSON 문자열 안 LaTeX 백슬래시·제어문자를 올바르게 이스케이프해 복구
+function repairJSON(t){
+  let out="", i=0, inStr=false;
+  const isHex=c=>!!c&&/[0-9a-fA-F]/.test(c), isL=c=>!!c&&/[a-zA-Z]/.test(c);
+  while(i<t.length){ const c=t[i];
+    if(!inStr){ out+=c; if(c==='"') inStr=true; i++; continue; }
+    if(c==='"'){ out+=c; inStr=false; i++; continue; }
+    if(c==='\n'){ out+='\\n'; i++; continue; }
+    if(c==='\r'){ out+='\\r'; i++; continue; }
+    if(c==='\t'){ out+='\\t'; i++; continue; }
+    if(c==='\\'){ const n=t[i+1];
+      if(n===undefined){ out+='\\\\'; i++; continue; }
+      if(n==='"'||n==='\\'||n==='/'){ out+='\\'+n; i+=2; continue; }
+      if(n==='u'){ if(isHex(t[i+2])&&isHex(t[i+3])&&isHex(t[i+4])&&isHex(t[i+5])){ out+='\\u'; i+=2; continue; } out+='\\\\u'; i+=2; continue; }
+      if('bfnrt'.includes(n)){ if(isL(t[i+2])){ out+='\\\\'+n; i+=2; continue; } out+='\\'+n; i+=2; continue; }
+      out+='\\\\'+n; i+=2; continue; }
+    out+=c; i++;
+  }
+  return out;
+}
+// "key":[ ... ] 안에서 완결된 {...} 객체만 골라 복구(잘림 대비)
+function salvageArray(t,key){
+  const ki=t.indexOf('"'+key+'"'); if(ki<0) return null;
+  const ab=t.indexOf('[', ki); if(ab<0) return null;
+  const objs=[]; let depth=0,start=-1,inStr=false,esc=false;
+  for(let i=ab+1;i<t.length;i++){ const ch=t[i];
+    if(inStr){ if(esc)esc=false; else if(ch==='\\')esc=true; else if(ch==='"')inStr=false; continue; }
+    if(ch==='"'){ inStr=true; continue; }
+    if(ch==='{'){ if(depth===0)start=i; depth++; }
+    else if(ch==='}'){ if(depth>0){ depth--; if(depth===0&&start>=0){ objs.push(t.slice(start,i+1)); start=-1; } } }
+    else if(ch===']'&&depth===0) break;
+  }
+  const out=[];
+  for(const o of objs){ for(const cand of [o, repairJSON(o)]){ try{ out.push(JSON.parse(cand)); break; }catch(_e){} } }
+  return out.length?out:null;
+}
+function parseJSON(raw){
+  let t=String(raw||"").replace(/```json|```/g,"").trim();
+  const s=t.indexOf("{"),e=t.lastIndexOf("}"); if(s>=0&&e>s) t=t.slice(s,e+1);
+  for(const cand of [t, repairJSON(t)]){ try{ return JSON.parse(cand); }catch(_e){} }
+  // 잘리거나 일부만 깨졌을 때: perQuestion 배열만이라도 살려 부분 분석 반환
+  const per=salvageArray(t,"perQuestion")||salvageArray(repairJSON(t),"perQuestion");
+  if(per&&per.length) return { perQuestion:per, errorTypeCounts:{}, weaknessSummary:"", prescription:[], teacherNotes:"" };
+  throw new Error("JSON 파싱 실패");
+}
 function buildSystemPrompt(secLabel){ return `당신은 미국 대학입시 SAT 전문 강사이자 오답 진단 전문가입니다. 모든 출력은 한국어. 영역: ${secLabel}
 각 틀린 문항: 1.whyChose 2.trapIntent 3.correctLogic 4.errorType(R&W:["어휘/문맥","핵심 근거 찾기","추론","글의 구조/목적","문법/문장 규칙","함정 선택지","시간 압박/실수"], Math:["개념 이해 부족","계산 실수","문제 해석 오류","공식 적용 오류","함정 선택지","시간 압박/실수"] 중 하나).
 종합: weaknessSummary, errorTypeCounts(객체), prescription(배열 3~4), teacherNotes.
@@ -71,8 +125,39 @@ Deno.serve(async(req)=>{
   if(req.method==="OPTIONS") return new Response("ok",{headers:cors});
   try{
     const body=await req.json(); const token=norm(body.token);
-    if(!token) return json({error:"토큰이 없습니다."},400);
     const sb=svc();
+
+    // ---------- reanalyze (실패한 AI 진단 재분석 — 시험 다시 안 봐도 됨) ----------
+    if(body.action==="reanalyze"){
+      const diagId=norm(body.diagId);
+      if(!diagId) return json({error:"진단 ID가 없습니다."},400);
+      const { data:att }=await sb.from("test_attempts").select("*").eq("diagnostic_id",diagId).order("created_at",{ascending:false}).limit(1).maybeSingle();
+      if(!att) return json({error:"응시 기록을 찾을 수 없습니다."},404);
+      const { data:ps2 }=await sb.from("problem_sets").select("*").eq("id",att.problem_set_id).single();
+      if(!ps2) return json({error:"시험지를 찾을 수 없습니다."},404);
+      const ad2 = !!ps2.adaptive && ps2.modules && Array.isArray(ps2.modules.m1);
+      let wrongQs=[], scoreStr="";
+      if(ad2){
+        const ans=att.answers||{};
+        const m1=scoreModule(ps2.modules.m1, ans.m1||[], 0);
+        const route=ans.route||routeOf(m1.score, ps2.modules.m1.length, ps2.route_threshold);
+        const m2qs = route==="hard" ? (ps2.modules.m2h||[]) : (ps2.modules.m2e||[]);
+        const m2=scoreModule(m2qs, ans.m2||[], ps2.modules.m1.length);
+        wrongQs=[...m1.wrong,...m2.wrong]; scoreStr=(m1.score+m2.score)+"/"+(ps2.modules.m1.length+m2qs.length);
+      }else{
+        const r=scoreModule(ps2.questions||[], att.answers||[], 0);
+        wrongQs=r.wrong; scoreStr=r.score+"/"+((ps2.questions||[]).length);
+      }
+      if(!wrongQs.length) return json({error:"틀린 문항이 없어 분석할 내용이 없습니다."},400);
+      await sb.from("diagnostics").update({status:"processing",error_msg:null}).eq("id",diagId);
+      await sb.from("diagnostic_questions").delete().eq("diagnostic_id",diagId);
+      const secLabel2 = ps2.section==="math"?"Math":"Reading & Writing";
+      const work=runDiagnosis(sb,diagId,secLabel2,ps2.title||"온라인 시험",scoreStr,wrongQs,ps2.teacher_id);
+      if(typeof EdgeRuntime!=="undefined"&&EdgeRuntime.waitUntil) EdgeRuntime.waitUntil(work); else await work;
+      return json({ ok:true });
+    }
+
+    if(!token) return json({error:"토큰이 없습니다."},400);
     const { data:ps, error:pErr }=await sb.from("problem_sets").select("*").eq("share_token",token).single();
     if(pErr) return json({error:"시험지 조회 실패: "+pErr.message},500);
     if(!ps) return json({error:"유효하지 않은 시험 링크입니다."},404);
