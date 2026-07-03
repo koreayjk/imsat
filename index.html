@@ -2781,7 +2781,16 @@ function autoVerifyBanner(){
   return "";
 }
 function paperVisible(){ const v=document.getElementById("view-paper"); return v && !v.classList.contains("hide"); }
-function stripInternalQ(q){ const {_flag,_claudeAns,...rest}=q; return rest; }
+function stripInternalQ(q){ const {_flag,_claudeAns,_verified,...rest}=q; return rest; }
+// 수학 문항처럼 보이는가(은행 오염 방지용 최종 안전장치) — 긴 지문+수학 표시 없음이면 R&W로 간주해 제외
+function looksLikeMath(q){
+  if(!q) return false;
+  if(q.format==='grid') return true;
+  const t=(q.stem||"")+" "+Object.values(q.choices||{}).join(" ");
+  if(/\\\(|\\\[|\$\$|\\frac|\\sqrt|\\times|\\div|\\le|\\ge|\\pi|\^|=|[0-9]/.test(t)) return true;
+  if(String(q.passage||"").trim().length>80) return false;   // 긴 지문 = R&W 신호
+  return true;
+}
 // Claude가 문항들을 직접 풀어 정답 맵(vid→answer) 반환
 async function verifySolvePass(qs){
   const BATCH=6, batches=[], results={};
@@ -2843,8 +2852,10 @@ async function autoVerifyMath(paper){
   const applyFlags=(results)=>{
     let n=0;
     paper.questions.forEach((q,idx)=>{ const r=results[idx];
-      if(r && r.answer && r.answer!=='?' && !qaMatch(q, r.answer)){ q._flag=true; q._claudeAns=r.answer; n++; }
-      else { delete q._flag; delete q._claudeAns; }
+      const concrete = !!(r && r.answer && r.answer!=='?');   // 클로드가 확정 정답을 냈는가
+      if(concrete && !qaMatch(q, r.answer)){ q._flag=true; q._claudeAns=r.answer; q._verified=false; n++; }
+      else { delete q._flag; delete q._claudeAns; q._verified = concrete && qaMatch(q, r.answer); }
+      // 확정 정답이 일치한 문항만 "검증됨" → 은행 적립 자격. 영어(못 푸는 '?')는 제외되어 오염 방지.
     });
     return n;
   };
@@ -2891,7 +2902,9 @@ async function depositToBank(paper){
   try{
     if(!paper || !(paper.questions||[]).length) return 0;
     const uid = await currentUid(); if(!uid) return 0;
-    const clean=(paper.questions||[]).filter(q=>q && !q._flag && (q.stem||q.choices));
+    // 검증된(클로드가 실제로 풀어 정답 일치) 수학 문항만 적립 → R&W가 math로 섞이는 오염 차단
+    const isMathPaper = paper.section==='math';
+    const clean=(paper.questions||[]).filter(q=>q && !q._flag && q._verified && (q.stem||q.choices) && (!isMathPaper || looksLikeMath(q)));
     if(!clean.length) return 0;
     const rows=clean.map(q=>{
       const c=q.choices||{}; const hasCh=["A","B","C","D"].some(k=>c[k]!==undefined);
@@ -2918,7 +2931,10 @@ async function drawFromBank(section, difficulty, want, excludeKeys){
       p_exclude: (excludeKeys && excludeKeys.length) ? excludeKeys : null
     });
     if(error) return [];
-    return (data||[]).map(r=>r&&r.question).filter(q=>q && (q.stem||q.choices));
+    let items=(data||[]).map(r=>r&&r.question).filter(q=>q && (q.stem||q.choices));
+    // 안전장치: 수학 출제인데 R&W처럼 보이는(오염된) 문항은 버림
+    if(section==='math') items=items.filter(looksLikeMath);
+    return items;
   }catch(_e){ return []; }
 }
 let qaRefText="";  // 선생님이 붙여넣은 공식 기준 문항(선택)
