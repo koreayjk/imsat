@@ -385,6 +385,10 @@
   .sb-brand{padding:4px 10px 14px;border-bottom:1px solid rgba(255,255,255,.08)}
   .sb-brand b{display:block;color:#fff;font-weight:800;font-size:15px;letter-spacing:-.01em}
   .sb-brand span{font-size:10px;letter-spacing:.16em;text-transform:uppercase;color:#fbbf24}
+  .sb-exam-select{width:100%;margin:0 0 12px;padding:9px 11px;border-radius:10px;border:1px solid rgba(255,255,255,.22);
+    background:rgba(255,255,255,.08);color:#fff;font-weight:800;font-family:inherit;font-size:13.5px;cursor:pointer}
+  .sb-exam-select:hover{background:rgba(255,255,255,.14)}
+  .sb-exam-select option{color:#0f172a}
   .sb-nav{display:flex;flex-direction:column;gap:5px}
   .sb-nav button{display:flex;align-items:center;gap:9px;width:100%;text-align:left;background:transparent;border:none;
     color:#e2e8f0;font-family:inherit;font-size:14px;font-weight:600;padding:10px 12px;border-radius:10px;cursor:pointer;transition:.15s}
@@ -708,9 +712,10 @@
 <body>
 <aside id="sidebar" class="no-print">
   <div class="sb-brand">
-    <div><b>IMSAT</b><span>SAT Diagnostics</span></div>
+    <div><b>INTO</b><span id="sbBrandSub">SAT · TOEIC · TOEFL · 수능</span></div>
     <button class="sb-collapse" onclick="toggleSidebar()" title="사이드바 접기 (B)">«</button>
   </div>
+  <select id="examSelect" class="sb-exam-select no-print" onchange="setExam(this.value)" title="시험 종류"></select>
   <nav class="sb-nav">
     <button id="nav-dash" onclick="showDashboard()">🏠 대시보드</button>
     <button id="nav-gen" class="cta" onclick="showGenerate()">📝 문제 출제</button>
@@ -1078,6 +1083,7 @@
 
   <!-- ============ 누적 종합 분석 ============ -->
   <section id="view-profile" class="hide"></section>
+  <section id="view-examhub" class="hide"></section>
 
   <!-- ============ 학생 포털 (학생 로그인 화면) ============ -->
   <section id="view-portal" class="hide"></section>
@@ -1109,6 +1115,21 @@ const CHOICES = ["A","B","C","D"];
 const SECTION_LABEL = { rw:"Reading & Writing", math:"Math" };
 const COLORS = ["#d97706","#0d9488","#e11d48","#2563eb","#7c3aed","#0891b2","#65a30d","#db2777"];
 
+// ===== 시험 종류 레지스트리 (SAT/토익/토플/수능) — 멀티 시험 플랫폼 토대 =====
+const EXAMS = {
+  sat:     { key:'sat',     name:'SAT',   emoji:'🎓', ready:true,  mode:'both',     choices:4, lang:'en',
+             desc:'Reading & Writing · Math (적응형 2모듈)' },
+  toeic:   { key:'toeic',   name:'TOEIC', emoji:'🗽', ready:false, mode:'paper',    choices:4, lang:'en',
+             desc:'Reading (Part 5~7) · 페이퍼 + OMR 스캔 채점' },
+  toefl:   { key:'toefl',   name:'TOEFL', emoji:'🏛️', ready:false, mode:'computer', choices:4, lang:'en',
+             desc:'Reading · 컴퓨터(온라인) 응시' },
+  suneung: { key:'suneung', name:'수능',  emoji:'📕', ready:false, mode:'paper',    choices:5, lang:'ko',
+             desc:'영어 · 수학 · 페이퍼 + OMR (5지선다 ①~⑤)' }
+};
+let currentExam = 'sat';
+try{ const _e=localStorage.getItem('imsat_exam'); if(_e && EXAMS[_e]) currentExam=_e; }catch(_e){}
+function examCfg(){ return EXAMS[currentExam] || EXAMS.sat; }
+
 let currentStudent = null;   // {id, name, created_at}
 let currentSection = "rw";
 let formQuestions = [];       // 입력 중인 문항들
@@ -1116,7 +1137,7 @@ let trendChartObj = null;
 let historyPollTimer = null;
 
 // ---------- 뷰 전환 ----------
-const VIEWS = ["dashboard","student","smart","form","report","generate","paper","library","mistakes","profile"];
+const VIEWS = ["dashboard","student","smart","form","report","generate","paper","library","mistakes","profile","examhub"];
 function show(view){
   VIEWS.forEach(v=>{
     document.getElementById("view-"+v).classList.toggle("hide", v!==view);
@@ -1190,7 +1211,39 @@ function toggleSidebar(){
   try{ localStorage.setItem("imsat_sb_collapsed", document.body.classList.contains("sb-collapsed")?"1":"0"); }catch(_e){}
 }
 function closeSidebar(){ document.body.classList.remove("sb-open"); }
-function showDashboard(){ show("dashboard"); loadStudents(); renderDraftBanner(); }
+// ===== 시험 종류 전환 (SAT/토익/토플/수능) =====
+function renderExamPicker(){
+  const sel=document.getElementById('examSelect'); if(!sel) return;
+  sel.innerHTML=Object.values(EXAMS).map(e=>
+    `<option value="${e.key}" ${e.key===currentExam?'selected':''}>${e.emoji} ${e.name}${e.ready?'':' · 준비중'}</option>`).join('');
+  sel.value=currentExam;
+}
+function setExam(key){
+  if(!EXAMS[key]) return;
+  currentExam=key; try{ localStorage.setItem('imsat_exam',key); }catch(_e){}
+  renderExamPicker();
+  const e=EXAMS[key];
+  if(e.ready) showDashboard();
+  else renderExamHub(e);
+}
+function renderExamHub(e){
+  const v=document.getElementById('view-examhub'); if(!v) return;
+  v.innerHTML=`<div class="card" style="max-width:660px;margin:40px auto;text-align:center;padding:36px 28px">
+    <div style="font-size:56px;line-height:1">${e.emoji}</div>
+    <h2 style="margin:12px 0 6px;color:var(--ink);font-size:24px">${esc(e.name)} <span class="muted" style="font-size:15px;font-weight:600">준비 중</span></h2>
+    <p class="muted" style="margin:0 0 4px">${esc(e.desc)}</p>
+    <p class="muted" style="font-size:13px;margin:0">응시: <b>${e.mode==='paper'?'페이퍼 + OMR 스캔 채점':(e.mode==='computer'?'컴퓨터(온라인)':'온라인/페이퍼')}</b> · 선택지 ${e.choices}개</p>
+    <div class="config-warn" style="text-align:left;margin:20px 0 0">
+      이 시험은 단계적으로 추가됩니다. 지금은 <b>공용 엔진</b>(AI 생성·검증·문제은행·배부·진단)이 준비돼 있고,
+      다음 단계에서 <b>${esc(e.name)} 문제 출제</b>부터 붙입니다. 현재 <b>SAT</b>는 완성되어 바로 사용할 수 있어요.
+    </div>
+    <div class="btn-row" style="justify-content:center;margin-top:18px">
+      <button class="btn btn-primary" style="flex:0 0 auto;width:auto;padding:10px 20px" onclick="setExam('sat')">← SAT 사용하기</button>
+    </div>
+  </div>`;
+  show('examhub');
+}
+function showDashboard(){ renderExamPicker(); show("dashboard"); loadStudents(); renderDraftBanner(); }
 
 // ---------- 작업 임시 저장 (localStorage) ----------
 const DRAFT_KEY = "imsat_draft_v1";
@@ -2167,6 +2220,7 @@ function setGenSeg(section, diff){
 }
 
 function showGenerate(student=null, weakTypes=[], section="rw"){
+  if(!examCfg().ready){ renderExamHub(examCfg()); return; }   // 준비 중 시험은 출제 화면 대신 안내
   genStudent = student;
   genWeakNote = "";
   genTopics = [];
@@ -3189,6 +3243,7 @@ async function loadStudentSets(){
 // ---------- 출제 보관함 (전용 메뉴) ----------
 let allSets = [];
 async function showLibrary(){
+  if(!examCfg().ready){ renderExamHub(examCfg()); return; }   // 준비 중 시험은 보관함 대신 안내
   show("library");
   const list=document.getElementById("libList");
   list.innerHTML='<div class="loading"><div class="spinner"></div>불러오는 중…</div>';
@@ -3424,6 +3479,8 @@ async function enterApp(session){
   document.getElementById("whoami").textContent = email ? ("로그인: "+email) : "";
   const sbw = document.getElementById("sbWho"); if(sbw) sbw.textContent = email || "";
   try{ loadStudents(); }catch(_e){}
+  renderExamPicker();
+  if(!examCfg().ready){ renderExamHub(examCfg()); return; }   // 준비 중 시험이 선택돼 있으면 안내 화면
   restoreNav().then(ok=>{ if(!ok) showDashboard(); }).catch(()=>showDashboard());
 }
 
