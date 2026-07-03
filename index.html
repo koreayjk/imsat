@@ -638,7 +638,9 @@
   .asg-list{display:flex;flex-direction:column;gap:2px;max-height:340px;overflow-y:auto}
   .asg-row{display:flex;align-items:center;gap:10px;padding:9px 10px;border-radius:9px}
   .asg-row:hover{background:#f8fafc}
-  .asg-nm{font-weight:700;color:var(--ink);font-size:14px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  /* 전역 input{width:100%} 이 체크박스를 늘려 이름을 밀어내던 문제 방지 */
+  .asg-row input[type=checkbox]{width:auto;flex:0 0 auto;padding:0;margin:0}
+  .asg-nm{flex:1 1 auto;min-width:0;font-weight:700;color:var(--ink);font-size:14px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
   .asg-code{font-family:ui-monospace,monospace;font-size:12px;font-weight:700;color:#0f766e;background:var(--teal-bg);
     border:1px solid #99f6e4;border-radius:7px;padding:3px 8px;cursor:pointer;white-space:nowrap}
   .asg-code:hover{background:#ccfbf1}
