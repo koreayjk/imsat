@@ -245,16 +245,22 @@
   .qa-gaps b{color:#b45309}
   .qa-ref{margin-top:14px;border:1px dashed #cbd5e1;border-radius:12px;padding:10px 14px}
   .qa-ref summary{cursor:pointer;font-weight:700;color:var(--ink2);font-size:13.5px}
+  @page{ margin:13mm }
   @media print{
-    .paper{border:none;padding:0;margin:0}
-    /* 한 페이지에 좌우 2열(보통 4문제). 문항은 페이지/열 사이에서 잘리지 않음 */
-    .paper > .paper-head, .paper > .paper-fill{break-after:avoid}
-    .paper{display:grid;grid-template-columns:1fr 1fr;gap:14px 20px;align-items:start}
-    .paper-head, .paper-fill{grid-column:1 / -1}
+    /* 신문식 2단 흐름: 머리글은 상단 전체, 문항은 좌열 채우고 우열로 (보통 4문제/쪽).
+       긴 문항은 자연히 더 차지 → 좌1/우2·좌2/우1 도 OK. 문항은 열·쪽 사이에서 안 잘림. */
+    .paper{border:none;padding:0;margin:0;column-count:2;column-gap:18px;column-fill:auto}
+    .paper > .paper-head, .paper > .paper-fill{column-span:all;break-after:avoid}
+    .paper-head h2{font-size:17px}
     .paper-q{break-inside:avoid;page-break-inside:avoid;border:1px solid #d4d4d8;border-radius:8px;
-      padding:12px 14px;border-bottom:1px solid #d4d4d8;margin:0}
-    .pq-passage{background:#fafafa}
+      padding:10px 12px;margin:0 0 10px;font-size:12px}
+    .pq-stem{font-size:12px;margin:6px 0}
+    .pq-passage{background:#fafafa;font-size:11.5px}
+    .pq-choices li{font-size:11.5px}
+    .pq-num{width:22px;height:22px;font-size:12px}
+    .q-figure svg{max-height:150px}
     .answer-block{break-inside:avoid}
+    .answer-block .ab-exp{font-size:11px}
   }
 
   /* ============ 외관 폴리시 ============ */
@@ -2754,6 +2760,8 @@ function renderPaper(){
     <div class="btn-row no-print" style="margin-bottom:16px;flex-wrap:wrap">
       <button class="btn btn-ghost" style="flex:0 0 auto;width:auto;padding:9px 16px" onclick="paperBack()">← 돌아가기</button>
       <button class="btn btn-ghost" id="toggleAnsBtn" onclick="togglePaperAnswers()">해설 보기</button>
+      <button class="btn btn-ghost" onclick="printPaper(false)">📄 문제지 PDF (2단)</button>
+      <button class="btn btn-ghost" onclick="printPaper(true)">📄 해설 PDF</button>
       <button class="btn btn-primary" onclick="openPresentation()">🖥 수업용 보기 (전체화면)</button>
     </div>
     <div class="btn-row no-print" style="margin-bottom:16px;flex-wrap:wrap">
