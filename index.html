@@ -181,6 +181,11 @@
   .paper .katex{font-size:1.05em}
   .pq-stem .katex,.pq-choices .katex{font-size:1em}
   .paper-q{padding:18px 0;border-bottom:1px solid #f1f5f9}
+  /* 적응형 모듈 구분 헤더 (화면: 진한 바 / 인쇄: 굵은 밑줄 = 새 페이지 시작) */
+  .pq-modhead{column-span:all;display:flex;align-items:baseline;justify-content:space-between;gap:10px;flex-wrap:wrap;
+    margin:26px 0 14px;padding:11px 15px;border-radius:11px;background:linear-gradient(135deg,#0f172a,#1e293b);color:#fff;font-weight:800;font-size:15.5px}
+  .pq-modhead.first{margin-top:6px}
+  .pq-modhead .pq-modn{font-size:11.5px;font-weight:600;opacity:.82;letter-spacing:.02em}
   .paper-q:last-child{border-bottom:none}
   .pq-num{display:inline-flex;align-items:center;justify-content:center;min-width:26px;height:26px;
     border-radius:7px;background:var(--ink);color:#fff;font-size:13px;font-weight:800}
@@ -261,6 +266,11 @@
     .q-figure svg{max-height:150px}
     .answer-block{break-inside:avoid}
     .answer-block .ab-exp{font-size:11px}
+    /* 모듈 헤더: 새 페이지에서 시작(첫 모듈 제외). 배경 인쇄 꺼져도 보이게 밑줄+진한 글자 */
+    .pq-modhead{break-before:page;break-after:avoid;background:none!important;color:#0f172a!important;
+      border:none;border-bottom:2.5px solid #0f172a;border-radius:0;padding:2px 0 6px;margin:0 0 12px;font-size:15px}
+    .pq-modhead.first{break-before:auto}
+    .pq-modhead .pq-modn{opacity:1;color:#475569}
   }
 
   /* ============ 외관 폴리시 ============ */
@@ -2719,7 +2729,7 @@ async function savePaper(){
 function renderPaper(){
   const p=currentPaper; const v=document.getElementById("view-paper");
   const date=new Date().toLocaleDateString("ko-KR",{year:"numeric",month:"long",day:"numeric"});
-  const qhtml=(p.questions||[]).map((q,idx)=>{
+  const card=(q,idx)=>{
     const n=q.number||idx+1;
     const choices=q.choices||{};
     const hasChoices=["A","B","C","D"].some(c=>choices[c]!==undefined);
@@ -2750,7 +2760,24 @@ function renderPaper(){
         ${distrHtml?`<div class="ab-distr"><b>오답 풀이</b><br>${distrHtml}</div>`:""}
       </div>
     </div>`;
-  }).join("");
+  };
+  // 적응형 시험지는 모듈별(모듈1 / 모듈2 쉬움 / 모듈2 어려움)로 묶고, PDF에서 각 모듈이 새 페이지에서 시작
+  let qhtml;
+  const mods=p.modules;
+  if(p.adaptive && mods && (Array.isArray(mods.m1)||Array.isArray(mods.m2e)||Array.isArray(mods.m2h))){
+    const groups=[
+      {k:'m1',  label:'모듈 1', sub:'Module 1'},
+      {k:'m2e', label:'모듈 2 · 쉬움', sub:'Module 2 — Easy'},
+      {k:'m2h', label:'모듈 2 · 어려움', sub:'Module 2 — Hard'}
+    ].filter(g=>Array.isArray(mods[g.k]) && mods[g.k].length);
+    qhtml=groups.map((g,gi)=>{
+      const qs=mods[g.k];
+      const head=`<div class="pq-modhead${gi===0?' first':''}"><span>${g.label}</span><span class="pq-modn">${g.sub} · ${qs.length}문항</span></div>`;
+      return head + qs.map((q,i)=>card(q,i)).join("");
+    }).join("");
+  } else {
+    qhtml=(p.questions||[]).map((q,idx)=>card(q,idx)).join("");
+  }
   const meta=`${SECTION_LABEL[p.section]||p.section} · 난이도 ${DIFF_LABEL[p.difficulty]||p.difficulty} · ${(p.questions||[]).length}문항${p.studentName?(" · "+esc(p.studentName)+" 학생"):""} · ${date}`;
   const warn = paperSaveWarn
     ? `<div class="config-warn">⚠️ 시험지는 표시되지만 저장에 실패했습니다 (<code>${esc(paperSaveWarn)}</code>). <b>problem_sets</b> 테이블이 없으면 저장소의 <code>supabase_problem_sets.sql</code> 을 Supabase SQL Editor에서 한 번 실행하세요.</div>`
