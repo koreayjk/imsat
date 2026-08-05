@@ -2308,6 +2308,9 @@ function buildGenPrompt(secLabel, topicStr, count, diffLabel, note, weakNote, av
 - 4개 도메인: Algebra / Advanced Math / Problem-Solving and Data Analysis / Geometry and Trigonometry. 선택 유형(${topicStr})에 맞추세요.
 - 형식 비율: 약 70%는 4지선다(format:"mc"), 약 30%는 학생 직접 입력(format:"grid"). grid 문항은 choices·distractors를 비우고 answer에 정확한 수치/분수만(예: "12", "-3/4", "2.5"). 답이 음수·분수가 될 수 있음.
 - 실제 시험 문체의 간결한 문장제와 순수 대수를 섞으세요. 맥락형(word problem)과 추상형을 함께.
+- [문항 길이 — 매우 중요] 실제 Digital SAT 수학은 발문이 **짧고 간결**합니다. 문장제는 **2~3문장 이내**로, 군더더기·불필요한 배경설명 없이. 지문이 길어 시간 잡아먹는 문항 금지. 약 60%는 짧은 순수 대수/계산형으로.
+- [난이도 밸런스] 지정 난이도로 통일하되, 한 문항이 지나치게 계산량이 많거나 여러 단계를 요구하지 않게(특히 easy/medium). 한 문항은 30~90초 내 풀 수 있는 분량.
+- [그림-문항 일치 — 필수] "figure"의 그림은 **반드시 그 문항의 상황·숫자와 정확히 일치**해야 합니다. 다른 문항의 그림을 재사용하거나, 발문과 안 맞는 그림(값·모양·라벨 불일치)을 넣지 마세요. 그림이 문항과 어긋나면 그림을 빼고 "figure":""로 두세요.
 - 모든 수식·식·숫자는 LaTeX로: 인라인 \\( ... \\), 디스플레이 $$ ... $$. 예: \\(f(x)=2x^2-3x+1\\), \\(\\frac{3}{4}\\), \\(\\sqrt{50}=5\\sqrt{2}\\), \\(\\le\\). (JSON 문자열 안 백슬래시는 \\\\ 로 이스케이프)
 - 객관식 오답(distractor)은 무작위 금지: 부호 실수·분배법칙 실수·단위 누락·자주 혼동하는 공식 등 "전형적 계산 실수"가 만들어내는 실제 값으로 설계.
 - 표는 텍스트/LaTeX array로 제시.
@@ -2603,10 +2606,10 @@ async function runGeneration(opts, btn){
   }
   // 은행에서 인출한 검증 문항을 앞에 합친다
   if(banked.length) all = banked.concat(all);
-  // 일부 묶음이 실패해 부족하면, 모자란 만큼 한 번 더 보충 시도
-  if(all.length>0 && all.length<count){
-    const need=Math.min(count-all.length, isMath?3:5);
-    if(btn) btn.textContent=(opts.phaseLabel?opts.phaseLabel+" · ":"")+"부족분 보충 중…";
+  // 부족분 보충 — 정확히 count개가 될 때까지 반복(최대 4회). 실전 문항수(모듈당 22/27)를 정확히 맞춤.
+  for(let fill=0; fill<4 && all.length<count; fill++){
+    const need=Math.min(count-all.length, isMath?4:5);
+    if(btn) btn.textContent=(opts.phaseLabel?opts.phaseLabel+" · ":"")+"부족분 보충 중… ("+all.length+"/"+count+")";
     try{
       const avoidText=avoid.length?avoid.slice(-60).join("\n- "):"";
       const prompt=buildGenPrompt(secLabel, topicStr, need, diffLabel, (note||""), weakNote, avoidText, "");
@@ -2614,7 +2617,10 @@ async function runGeneration(opts, btn){
       const res=await fetch(ANALYZE_URL,{ method:"POST", headers:await fnHeaders(), body:JSON.stringify(reqBody) });
       const out=await res.json();
       const d2=out.error?null:parseModelJSON(out.text||"");
-      if(d2 && Array.isArray(d2.questions)) all=all.concat(d2.questions);
+      if(d2 && Array.isArray(d2.questions) && d2.questions.length){
+        d2.questions.forEach(q=>{ if(q) avoid.push(avoidKeyOf(q)); });
+        all=all.concat(d2.questions);
+      }
     }catch(_e){}
   }
   if(all.length===0){
@@ -2622,12 +2628,29 @@ async function runGeneration(opts, btn){
       throw new Error("AI 모델이 일시적으로 혼잡합니다(과부하). 잠시 후 다시 시도해 주세요. 계속되면 문항 수를 줄여 보세요.");
     throw new Error("문제를 생성하지 못했습니다. 다시 시도해 주세요."+(genHadError?(" ("+genHadError.slice(0,80)+")"):""));
   }
-  all=all.slice(0,count).map((q,i)=>({ ...q, number:i+1 }));
+  all=all.slice(0,count);
+  if(!isMath) all=orderRW(all);   // R&W는 실전 유형 순서(보카→독해→구조→연결어→문법)로 정렬
+  all=all.map((q,i)=>({ ...q, number:i+1 }));
   const baseTitle = "IMSAT " + secLabel + " 실전 모의 문항";
   return { title: seq ? (baseTitle+" #"+seq) : baseTitle, section, difficulty, topics:topics||[],
     questions: all, studentName: student? student.name : null, savedId:null };
 }
 
+// R&W 문항을 실전 SAT 유형 순서로 정렬 (보카 → 독해[주제·근거·추론] → 글의 구조/목적 → 연결어 → 문법)
+function rwTypeRank(q){
+  const s=((q&&q.skill)||"").toLowerCase();
+  if(/word|vocab|문맥|어휘/.test(s)) return 1;                                              // Words in Context
+  // 문법(Form/Boundaries)은 "Structure"란 단어를 포함하므로 구조 판정보다 먼저 검사
+  if(/boundar|form|convention|sense|grammar|문법|구두점|경계|동사|대명사|일치/.test(s)) return 5; // Grammar
+  if(/transition|연결/.test(s)) return 4;                                                   // Transitions
+  if(/rhetor|synthesis|수사|노트/.test(s)) return 4.5;                                       // Rhetorical Synthesis
+  if(/structure|purpose|cross|구조|목적|비교|두 지문/.test(s)) return 3;                     // Text Structure & Purpose / Cross-text
+  if(/central|idea|detail|evidence|quantit|infer|근거|추론|주제|세부|자료|데이터|그래프|표/.test(s)) return 2; // Reading comprehension
+  return 2.5;  // 미분류 → 독해 뒤
+}
+function orderRW(qs){
+  return (qs||[]).map((q,i)=>({q,i})).sort((a,b)=> (rwTypeRank(a.q)-rwTypeRank(b.q)) || (a.i-b.i)).map(x=>x.q);
+}
 // 한 문항의 "소재 키": 지문이 있으면 지문 앞부분(소재), 없으면 발문
 function avoidKeyOf(q){
   const src=(q&&q.passage&&String(q.passage).trim()) ? q.passage : (q&&q.stem)||"";
@@ -3216,6 +3239,15 @@ function copyCode(code, el){
 async function openAssign(){
   const box=document.getElementById("assignBox"); if(!box||!currentPaper) return;
   if(box.dataset.open==="1"){ box.innerHTML=""; box.dataset.open="0"; return; }
+  // 검증 미완료/불일치 상태로 배부하면 학생이 "정답 없는 문항"을 만날 수 있음 → 막기/경고
+  if(currentPaper.section==='math' || currentPaper.section==='rw'){
+    if(paperVerifyState==='running' || paperVerifyState==='fixing'){
+      alert("AI 정답 검증이 아직 진행 중입니다.\n상단 배너가 '✅ 검증 완료'로 바뀐 뒤 배부해 주세요.\n(검증이 끝나야 정답 없는 문항이 자동으로 걸러집니다.)");
+      return;
+    }
+    const flagged=(currentPaper.questions||[]).filter(q=>q._flag).length;
+    if(flagged>0 && !confirm("아직 정답이 어긋난 문항이 "+flagged+"개 남아 있습니다(빨간 테두리).\n그대로 배부하면 학생이 '정답 없는 문항'을 볼 수 있어요.\n먼저 '🔄 비슷하게 새 문제'로 교체하는 걸 권장합니다.\n\n그래도 배부할까요?")) return;
+  }
   box.dataset.open="1";
   box.innerHTML='<div class="card"><div class="muted" style="padding:8px">학생 목록 불러오는 중…</div></div>';
   try{
