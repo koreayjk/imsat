@@ -695,6 +695,10 @@
   .pr-badge.ok{background:var(--teal-bg);color:#0f766e} .pr-badge.no{background:var(--rose-bg);color:var(--rose)}
   .pr-q .pq-choices li.correct{color:var(--ink);font-weight:700} .pr-q .pq-choices li.correct .ck{background:var(--teal);border-color:var(--teal);color:#fff}
   .pr-q .pq-choices li.wrong .ck{background:var(--rose);border-color:var(--rose);color:#fff}
+  .kh-link{display:inline-flex;align-items:center;gap:6px;margin-top:10px;font-size:13px;font-weight:700;color:#0f766e;
+    background:var(--teal-bg);border:1px solid #99f6e4;border-radius:8px;padding:7px 12px;text-decoration:none}
+  .kh-link:hover{background:#ccfbf1}
+  .kh-link.sm{margin-top:0;font-size:12px;padding:5px 10px}
   /* 배부 패널 */
   .asg-list{display:flex;flex-direction:column;gap:2px;max-height:340px;overflow-y:auto}
   .asg-row{display:flex;align-items:center;gap:10px;padding:9px 10px;border-radius:9px}
@@ -2428,7 +2432,7 @@ ${avoidText?("\n[중복 금지 — 매우 중요] 아래는 이미 출제된 문
 [이 묶음 내부 중복 금지] 이번에 만드는 ${count}문항끼리도 서로 지문 소재·주제·상황·등장인물·핵심 숫자가 겹치면 안 됩니다. 각 문항이 완전히 다른 소재여야 합니다.
 ${figureBlock}
 [출력] 순수 JSON만 출력(설명·백틱 금지):
-{"title":"시험지 제목(한국어, 영역·유형 반영)","questions":[{"number":1,"skill":"공식 유형명","difficulty":"easy|medium|hard","format":"mc","passage":"지문/맥락 또는 빈 문자열","figure":"필요시 SVG 코드, 아니면 빈 문자열","stem":"발문(영어)","choices":{"A":"...","B":"...","C":"...","D":"..."},"answer":"A","explanation":"정답 해설(한국어, 단계적)","distractors":{"B":"오답 이유","C":"오답 이유","D":"오답 이유"}}]}
+{"title":"시험지 제목(한국어, 영역·유형 반영)","questions":[{"number":1,"skill":"공식 유형명","concept":"이 문항 핵심 개념(영어, 강의 검색용 2~4단어 예: quadratic functions, subject-verb agreement)","difficulty":"easy|medium|hard","format":"mc","passage":"지문/맥락 또는 빈 문자열","figure":"필요시 SVG 코드, 아니면 빈 문자열","stem":"발문(영어)","choices":{"A":"...","B":"...","C":"...","D":"..."},"answer":"A","explanation":"정답 해설(한국어, 단계적)","distractors":{"B":"오답 이유","C":"오답 이유","D":"오답 이유"}}]}
 - 객관식은 format:"mc". 수학 grid 문항은 format:"grid"로 하고 choices와 distractors를 생략, answer에 수치만.
 - JSON 문자열 안에서 백슬래시는 반드시 \\\\ 로 이스케이프. (SVG 안에는 백슬래시를 쓰지 마세요)`;
 }
@@ -3382,7 +3386,8 @@ async function loadStudentPractice(){
     const wrongRows=wrong.slice(0,20).map(w=>{ const d=new Date(w.created_at).toLocaleDateString("ko-KR",{month:"short",day:"numeric"});
       const stem=String((w.question&&w.question.stem)||"").replace(/\s+/g," ").slice(0,60);
       return `<div class="hist-row" style="cursor:default"><div><div style="font-size:13px;color:var(--ink)">${esc(stem)}…</div>
-        <div class="muted">${d} · ${esc(w.section==='math'?'Math':'R&W')}${w.skill?' · '+esc(w.skill):''} · 내답 ${esc(w.student_answer||'-')}/정답 ${esc(w.correct_answer||'-')}</div></div></div>`;
+        <div class="muted">${d} · ${esc(w.section==='math'?'Math':'R&W')}${w.skill?' · '+esc(w.skill):''} · 내답 ${esc(w.student_answer||'-')}/정답 ${esc(w.correct_answer||'-')}</div></div>
+        <div class="hist-right">${khanBtn(w.question||{}, true)}</div></div>`;
     }).join("");
     box.innerHTML=`
       <div class="card" style="padding:14px 16px;margin-bottom:10px">
@@ -3800,6 +3805,16 @@ function portalViewResult(token){
 let PR = null;                                   // 현재 연습 상태
 let prSel = { section:'rw', count:5, difficulty:'medium' };
 function examTypeNow(){ try{ return (typeof currentExam!=='undefined' && currentExam) || 'sat'; }catch(_e){ return 'sat'; } }
+// 이 문항 개념으로 칸아카데미 강의(유튜브 검색) 링크 — 항상 작동, 죽은 링크 없음
+function khanConcept(q){ return String((q&&(q.concept||q.skill))||"").trim(); }
+function khanLink(q){
+  const c=khanConcept(q) || "SAT";
+  return "https://www.youtube.com/results?search_query="+encodeURIComponent("Khan Academy "+c);
+}
+function khanBtn(q, small){
+  const c=khanConcept(q); if(!c) return "";
+  return `<a class="kh-link${small?' sm':''}" href="${khanLink(q)}" target="_blank" rel="noopener">📺 개념 강의 (Khan Academy)</a>`;
+}
 
 async function reloadPortal(){
   const v=document.getElementById("view-portal"); if(!v||!myStudent) return;
@@ -3910,7 +3925,7 @@ function renderPracticeReview(){
     return `<div class="pr-q ${ok?'':'pr-wrong'}"><div class="pr-qh"><span class="pq-num">${i+1}</span>${q.skill?`<span class="pq-skill">${esc(q.skill)}</span>`:""}<span class="pr-badge ${ok?'ok':'no'}">${ok?'정답':'오답'}</span></div>
       ${q.passage&&String(q.passage).trim()?`<div class="pq-passage">${esc(q.passage)}</div>`:""}${figureHtml(q)}
       <div class="pq-stem">${esc(q.stem||"")}</div>${choicesHtml}
-      <div class="answer-block" style="display:block;margin-top:10px"><div class="ab-ans">정답: ${esc(ans)}</div><div class="ab-exp">${esc(q.explanation||"")}</div></div></div>`;
+      <div class="answer-block" style="display:block;margin-top:10px"><div class="ab-ans">정답: ${esc(ans)}</div><div class="ab-exp">${esc(q.explanation||"")}</div>${khanBtn(q)}</div></div>`;
   }).join("");
   v.innerHTML=`<div class="btn-row" style="margin-bottom:14px"><button class="btn btn-ghost" style="width:auto;padding:8px 14px" onclick="reloadPortal()">← 내 포털</button></div>
     <div class="card"><h3 style="margin:0 0 4px">📊 결과 · ${esc(PR.title)}</h3>
@@ -3931,7 +3946,8 @@ async function renderWrongNotebook(){
     const d=new Date(w.created_at).toLocaleDateString("ko-KR",{month:'short',day:'numeric'});
     const stem=String((w.question&&w.question.stem)||"").replace(/\s+/g," ").slice(0,70);
     return `<div class="pt-card"><div class="pt-card-main"><div class="pt-title" style="font-size:13.5px">${esc(stem)}…</div>
-      <div class="pt-sub">${esc(w.section==='math'?'Math':'R&W')}${w.skill?' · '+esc(w.skill):''} · ${d} · 내답 <b>${esc(w.student_answer||'-')}</b> / 정답 <b>${esc(w.correct_answer||'-')}</b></div></div></div>`;
+      <div class="pt-sub">${esc(w.section==='math'?'Math':'R&W')}${w.skill?' · '+esc(w.skill):''} · ${d} · 내답 <b>${esc(w.student_answer||'-')}</b> / 정답 <b>${esc(w.correct_answer||'-')}</b></div></div>
+      <div class="pt-actions">${khanBtn(w.question||{}, true)}</div></div>`;
   }).join("") : '<div class="muted" style="padding:16px;text-align:center">아직 오답이 없어요. 연습을 풀면 틀린 문제가 여기 모여요.</div>';
   v.innerHTML=`<div class="btn-row" style="margin-bottom:14px"><button class="btn btn-ghost" style="width:auto;padding:8px 14px" onclick="reloadPortal()">← 내 포털</button></div>
     <div class="card"><h3 style="margin:0 0 4px">📕 오답노트 <span class="muted" style="font-weight:400;font-size:13px">(${rows.length}문항)</span></h3>
@@ -3954,7 +3970,7 @@ ${section==='math'?'수식은 LaTeX(인라인 \\\\( ... \\\\))로. grid 문항�
 
 ${seedText}
 
-순수 JSON만 출력(백틱·설명 금지): {"questions":[{"skill":"공식 유형명","difficulty":"medium","format":"mc","passage":"","figure":"","stem":"","choices":{"A":"","B":"","C":"","D":""},"answer":"A","explanation":"","distractors":{}}]}`;
+순수 JSON만 출력(백틱·설명 금지): {"questions":[{"skill":"공식 유형명","concept":"핵심 개념(영어, 강의 검색용 2~4단어)","difficulty":"medium","format":"mc","passage":"","figure":"","stem":"","choices":{"A":"","B":"","C":"","D":""},"answer":"A","explanation":"","distractors":{}}]}`;
   try{
     const res=await fetch(ANALYZE_URL,{ method:"POST", headers:await fnHeaders(),
       body:JSON.stringify({ task:"generate", max_tokens:Math.min(8000, 1100*seeds.length+1500), messages:[{role:"user",content:[{type:"text",text:prompt}]}] }) });
