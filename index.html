@@ -3805,14 +3805,43 @@ function portalViewResult(token){
 let PR = null;                                   // 현재 연습 상태
 let prSel = { section:'rw', count:5, difficulty:'medium' };
 function examTypeNow(){ try{ return (typeof currentExam!=='undefined' && currentExam) || 'sat'; }catch(_e){ return 'sat'; } }
-// 이 문항 개념으로 칸아카데미 공식 사이트 강의 검색 링크 — 항상 작동, 죽은 링크 없음
+// 이 문항 개념으로 칸아카데미 공식 사이트 강의 검색 링크 — 유형을 표준 검색어로 매핑(정확한 강의가 뜨게)
 function khanConcept(q){ return String((q&&(q.concept||q.skill))||"").trim(); }
+function khanQuery(q){
+  const s=String((q&&q.skill)||"").toLowerCase();
+  const map=[
+    [/word|vocab|문맥|어휘/, "context clues vocabulary"],
+    [/transition|연결/, "transition words"],
+    [/boundar|punctuation|구두점|경계/, "commas semicolons punctuation"],
+    [/form|convention|sense|동사|대명사|일치|문법/, "subject verb agreement grammar"],
+    [/synthesis|노트/, "using evidence in writing"],
+    [/structure|purpose|rhetor|구조|목적|수사/, "author's purpose text structure"],
+    [/cross|두 지문|비교/, "comparing two texts"],
+    [/evidence|근거|자료|데이터/, "textual evidence reading"],
+    [/infer|추론/, "making inferences reading"],
+    [/central|idea|주제|세부|detail/, "main idea reading comprehension"],
+    [/system|연립/, "systems of equations"],
+    [/quadratic|이차|parabola|포물선/, "quadratic functions"],
+    [/expon|지수/, "exponential functions"],
+    [/linear|일차/, "linear equations"],
+    [/ratio|percent|proportion|비율|백분율/, "ratios and percentages"],
+    [/statistic|probability|통계|확률|scatter|산점도|data/, "statistics and probability"],
+    [/trig|삼각비/, "trigonometry"],
+    [/geometr|angle|triangle|circle|도형|각|삼각형|원/, "geometry"],
+    [/advanced/, "algebra 2 functions"],
+    [/algebra/, "algebra basics"]
+  ];
+  for(const [re,qy] of map){ if(re.test(s)) return qy; }
+  // 매핑 안 되면 개념을 짧게 정리(쉼표 뒤 자르고 앞 3단어만)
+  const c=String((q&&q.concept)||"").replace(/[,:;].*$/,"").trim();
+  if(c) return c.split(/\s+/).slice(0,3).join(" ");
+  return "SAT prep";
+}
 function khanLink(q){
-  const c=khanConcept(q) || "SAT";
-  return "https://www.khanacademy.org/search?page_search_query="+encodeURIComponent(c);
+  return "https://www.khanacademy.org/search?page_search_query="+encodeURIComponent(khanQuery(q));
 }
 function khanBtn(q, small){
-  const c=khanConcept(q); if(!c) return "";
+  if(!khanConcept(q)) return "";
   return `<a class="kh-link${small?' sm':''}" href="${khanLink(q)}" target="_blank" rel="noopener">📘 개념 강의 (Khan Academy)</a>`;
 }
 
