@@ -3057,6 +3057,9 @@ async function autoVerifyMath(paper){
   if(paperFixInfo.replaced>0) await persistPaper(paper);   // 교체분 저장
   paperVerifyState='done';
   if(currentPaper===paper && paperVisible()) renderPaper();
+  // 검증 완료 표시 저장 → 다음에 열 땐 재검증하지 않음(열 때마다 재검증 방지)
+  if(paper.savedId){ const ts=new Date().toISOString();
+    try{ await sb.from("problem_sets").update({ verified_at: ts }).eq("id", paper.savedId); paper.verifiedAt=ts; }catch(_e){} }
   // 검증 통과 문항을 문제은행에 적립 → 다음 출제 때 재사용
   paperFixInfo.banked = await depositToBank(paper);
   if(currentPaper===paper && paperVisible()) renderPaper();
@@ -3429,6 +3432,7 @@ async function openProblemSet(id, origin){
   currentPaper={ title:data.title, section:data.section, difficulty:data.difficulty,
     topics:data.topics||[], questions:data.questions||[], shareToken:data.share_token||null,
     adaptive:!!data.adaptive, modules:data.modules||null, routeThreshold:data.route_threshold||0.6,
+    verifiedAt:data.verified_at||null,
     studentName:(origin==='student'&&currentStudent)?currentStudent.name:null, savedId:data.id };
   paperSaveWarn="";
   if(origin==='student' && currentStudent){ const st=currentStudent; genStudent=st; genWeakNote=""; paperReturn=()=>openStudent(st); }
@@ -3438,8 +3442,9 @@ async function openProblemSet(id, origin){
     else if(origin==='generate') paperReturn=()=>show("generate");
     else paperReturn=showDashboard;
   }
-  renderPaper();
-  autoVerifyMath(currentPaper);   // 수학·R&W 시험지 모두 열 때 자동 검증·교체
+  // 이미 검증한 시험지는 다시 검증하지 않음(열 때마다 재검증 방지). 처음 여는 것만 검증.
+  if(currentPaper.verifiedAt){ paperFixInfo={replaced:0,remaining:0,banked:0}; paperVerifyState='done'; renderPaper(); }
+  else { renderPaper(); autoVerifyMath(currentPaper); }
 }
 async function deleteProblemSet(id){
   if(!confirm("이 시험지를 삭제할까요? 되돌릴 수 없습니다.")) return;
@@ -4054,10 +4059,18 @@ async function fnHeaders(){
   const token = session ? session.access_token : SUPABASE_ANON;
   return { "Content-Type":"application/json", "Authorization":"Bearer "+token, "apikey":SUPABASE_ANON };
 }
+let _authedUid = null;
 async function initAuth(){
   const { data:{ session } }=await sb.auth.getSession();
-  if(session) enterApp(session); else showAuth();
-  sb.auth.onAuthStateChange((_e,s)=>{ if(s) enterApp(s); else showAuth(); });
+  if(session && session.user){ _authedUid=session.user.id; enterApp(session); } else showAuth();
+  // 탭 복귀·토큰 자동갱신 때마다 화면이 리셋되지 않도록: 실제 로그인/로그아웃 전환에서만 반응
+  sb.auth.onAuthStateChange((e,s)=>{
+    const uid = s && s.user ? s.user.id : null;
+    if(!uid || e==='SIGNED_OUT'){ _authedUid=null; showAuth(); return; }
+    if(e==='TOKEN_REFRESHED' || e==='USER_UPDATED') return;   // 화면 유지(무시)
+    if(uid===_authedUid) return;                              // 이미 이 사용자로 진입함 → 재진입 안 함
+    _authedUid=uid; enterApp(s);
+  });
 }
 document.getElementById("authPass").addEventListener("keydown",e=>{ if(e.key==="Enter") login(); });
 
