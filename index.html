@@ -3701,10 +3701,6 @@ async function enterStudentPortal(session){
     const { data:st } = await sb.from("students").select("*").eq("auth_user_id", session.user.id).maybeSingle();
     if(!st){ showOnboarding(session); return; }
     myStudent = st;
-    const [{ data:asg }, attRes] = await Promise.all([
-      sb.from("assignments").select("*").eq("student_id", st.id).order("created_at",{ascending:false}),
-      sb.rpc("my_attempts")   // 지난 응시 결과(제목·토큰 포함)
-    ]);
     const [{ data:asg }, attRes, prRes] = await Promise.all([
       sb.from("assignments").select("*").eq("student_id", st.id).order("created_at",{ascending:false}),
       sb.rpc("my_attempts"),   // 지난 응시 결과(제목·토큰 포함)
