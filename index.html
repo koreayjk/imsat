@@ -3387,7 +3387,7 @@ async function loadStudentPractice(){
       const stem=String((w.question&&w.question.stem)||"").replace(/\s+/g," ").slice(0,60);
       return `<div class="hist-row" style="cursor:default"><div><div style="font-size:13px;color:var(--ink)">${esc(stem)}…</div>
         <div class="muted">${d} · ${esc(w.section==='math'?'Math':'R&W')}${w.skill?' · '+esc(w.skill):''} · 내답 ${esc(w.student_answer||'-')}/정답 ${esc(w.correct_answer||'-')}</div></div>
-        <div class="hist-right">${khanBtn(w.question||{}, true)}</div></div>`;
+        <div class="hist-right">${khanBtn(w.question||{}, true, w.section)}</div></div>`;
     }).join("");
     box.innerHTML=`
       <div class="card" style="padding:14px 16px;margin-bottom:10px">
@@ -3805,44 +3805,27 @@ function portalViewResult(token){
 let PR = null;                                   // 현재 연습 상태
 let prSel = { section:'rw', count:5, difficulty:'medium' };
 function examTypeNow(){ try{ return (typeof currentExam!=='undefined' && currentExam) || 'sat'; }catch(_e){ return 'sat'; } }
-// 이 문항 개념으로 칸아카데미 공식 사이트 강의 검색 링크 — 유형을 표준 검색어로 매핑(정확한 강의가 뜨게)
-function khanConcept(q){ return String((q&&(q.concept||q.skill))||"").trim(); }
-function khanQuery(q){
+// 유형 → 칸아카데미 공식 Digital SAT 코스 유닛으로 직접 연결 (실제 URL 검증 완료)
+const KA_RW="https://www.khanacademy.org/test-prep/sat-reading-and-writing/x0d47bcec73eb6c4b:";
+const KA_M ="https://www.khanacademy.org/test-prep/v2-sat-math/x0fcc98a58ba3bea7:";
+function khanLink(q, section){
   const s=String((q&&q.skill)||"").toLowerCase();
-  const map=[
-    [/word|vocab|문맥|어휘/, "context clues vocabulary"],
-    [/transition|연결/, "transition words"],
-    [/boundar|punctuation|구두점|경계/, "commas semicolons punctuation"],
-    [/form|convention|sense|동사|대명사|일치|문법/, "subject verb agreement grammar"],
-    [/synthesis|노트/, "using evidence in writing"],
-    [/structure|purpose|rhetor|구조|목적|수사/, "author's purpose text structure"],
-    [/cross|두 지문|비교/, "comparing two texts"],
-    [/evidence|근거|자료|데이터/, "textual evidence reading"],
-    [/infer|추론/, "making inferences reading"],
-    [/central|idea|주제|세부|detail/, "main idea reading comprehension"],
-    [/system|연립/, "systems of equations"],
-    [/quadratic|이차|parabola|포물선/, "quadratic functions"],
-    [/expon|지수/, "exponential functions"],
-    [/linear|일차/, "linear equations"],
-    [/ratio|percent|proportion|비율|백분율/, "ratios and percentages"],
-    [/statistic|probability|통계|확률|scatter|산점도|data/, "statistics and probability"],
-    [/trig|삼각비/, "trigonometry"],
-    [/geometr|angle|triangle|circle|도형|각|삼각형|원/, "geometry"],
-    [/advanced/, "algebra 2 functions"],
-    [/algebra/, "algebra basics"]
-  ];
-  for(const [re,qy] of map){ if(re.test(s)) return qy; }
-  // 매핑 안 되면 개념을 짧게 정리(쉼표 뒤 자르고 앞 3단어만)
-  const c=String((q&&q.concept)||"").replace(/[,:;].*$/,"").trim();
-  if(c) return c.split(/\s+/).slice(0,3).join(" ");
-  return "SAT prep";
+  const lvl = String((q&&q.difficulty)||"").toLowerCase()==='hard' ? 'harder' : 'easier';
+  // R&W (도메인 유닛)
+  if(/word|vocab|문맥|어휘|structure|purpose|cross|구조|목적|비교|두 지문/.test(s)) return KA_RW+"foundations-craft-and-structure";
+  if(/central|idea|detail|evidence|quantit|infer|근거|추론|주제|세부|자료|데이터/.test(s)) return KA_RW+"foundations-information-and-ideas";
+  if(/transition|연결|synthesis|노트|boundar|form|convention|sense|문법|구두점|경계|동사|대명사|일치/.test(s)) return KA_RW+"foundations-expression-of-ideas-and-standard-english-conventions";
+  // Math (도메인 × 난이도)
+  if(/system|연립|linear|일차|inequal|부등식/.test(s)) return KA_M+"algebra-"+lvl;
+  if(/quadratic|이차|parabola|포물선|expon|지수|polynomial|다항|advanced|함수|function|nonlinear/.test(s)) return KA_M+"advanced-math-"+lvl;
+  if(/ratio|percent|proportion|비율|백분율|statistic|probability|통계|확률|scatter|산점도|mean|median|data/.test(s)) return KA_M+"problem-solving-and-data-analysis-"+lvl;
+  if(/geometr|angle|triangle|circle|도형|각|삼각형|원|trig|삼각비|volume|부피|area|넓이/.test(s)) return KA_M+"geometry-and-trigonometry-"+lvl;
+  // 유형을 못 찾으면 해당 코스 랜딩(항상 안정적)
+  return (section==='math') ? "https://www.khanacademy.org/test-prep/v2-sat-math"
+                            : "https://www.khanacademy.org/test-prep/sat-reading-and-writing";
 }
-function khanLink(q){
-  return "https://www.khanacademy.org/search?page_search_query="+encodeURIComponent(khanQuery(q));
-}
-function khanBtn(q, small){
-  if(!khanConcept(q)) return "";
-  return `<a class="kh-link${small?' sm':''}" href="${khanLink(q)}" target="_blank" rel="noopener">📘 개념 강의 (Khan Academy)</a>`;
+function khanBtn(q, small, section){
+  return `<a class="kh-link${small?' sm':''}" href="${khanLink(q, section)}" target="_blank" rel="noopener">📘 개념 강의 (Khan Academy 공식 SAT)</a>`;
 }
 
 async function reloadPortal(){
@@ -3954,7 +3937,7 @@ function renderPracticeReview(){
     return `<div class="pr-q ${ok?'':'pr-wrong'}"><div class="pr-qh"><span class="pq-num">${i+1}</span>${q.skill?`<span class="pq-skill">${esc(q.skill)}</span>`:""}<span class="pr-badge ${ok?'ok':'no'}">${ok?'정답':'오답'}</span></div>
       ${q.passage&&String(q.passage).trim()?`<div class="pq-passage">${esc(q.passage)}</div>`:""}${figureHtml(q)}
       <div class="pq-stem">${esc(q.stem||"")}</div>${choicesHtml}
-      <div class="answer-block" style="display:block;margin-top:10px"><div class="ab-ans">정답: ${esc(ans)}</div><div class="ab-exp">${esc(q.explanation||"")}</div>${khanBtn(q)}</div></div>`;
+      <div class="answer-block" style="display:block;margin-top:10px"><div class="ab-ans">정답: ${esc(ans)}</div><div class="ab-exp">${esc(q.explanation||"")}</div>${khanBtn(q, false, PR.section)}</div></div>`;
   }).join("");
   v.innerHTML=`<div class="btn-row" style="margin-bottom:14px"><button class="btn btn-ghost" style="width:auto;padding:8px 14px" onclick="reloadPortal()">← 내 포털</button></div>
     <div class="card"><h3 style="margin:0 0 4px">📊 결과 · ${esc(PR.title)}</h3>
@@ -3976,7 +3959,7 @@ async function renderWrongNotebook(){
     const stem=String((w.question&&w.question.stem)||"").replace(/\s+/g," ").slice(0,70);
     return `<div class="pt-card"><div class="pt-card-main"><div class="pt-title" style="font-size:13.5px">${esc(stem)}…</div>
       <div class="pt-sub">${esc(w.section==='math'?'Math':'R&W')}${w.skill?' · '+esc(w.skill):''} · ${d} · 내답 <b>${esc(w.student_answer||'-')}</b> / 정답 <b>${esc(w.correct_answer||'-')}</b></div></div>
-      <div class="pt-actions">${khanBtn(w.question||{}, true)}</div></div>`;
+      <div class="pt-actions">${khanBtn(w.question||{}, true, w.section)}</div></div>`;
   }).join("") : '<div class="muted" style="padding:16px;text-align:center">아직 오답이 없어요. 연습을 풀면 틀린 문제가 여기 모여요.</div>';
   v.innerHTML=`<div class="btn-row" style="margin-bottom:14px"><button class="btn btn-ghost" style="width:auto;padding:8px 14px" onclick="reloadPortal()">← 내 포털</button></div>
     <div class="card"><h3 style="margin:0 0 4px">📕 오답노트 <span class="muted" style="font-weight:400;font-size:13px">(${rows.length}문항)</span></h3>
