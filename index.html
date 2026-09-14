@@ -782,7 +782,7 @@
       <div id="authMsg" style="margin-top:10px"></div>
       <button class="btn btn-primary" style="margin-top:12px" onclick="login()">로그인</button>
       <button class="btn btn-ghost" style="margin-top:8px" onclick="signup()">회원가입</button>
-      <div class="muted" style="margin-top:12px;text-align:center">선생님은 바로 로그인하세요.<br><b>학생</b>은 회원가입 후 선생님께 받은 <b>초대 코드</b>를 입력하면 됩니다.</div>
+      <div class="muted" style="margin-top:12px;text-align:center">선생님은 바로 로그인하세요.<br><b>학생</b>은 회원가입 후 <b>학원 가입 코드 + 이름</b>을 입력하면 등록됩니다.</div>
     </div>
   </section>
 
@@ -800,6 +800,7 @@
       </div>
     </div>
     <div id="dashStats"></div>
+    <div id="orgCodeBox" class="no-print"></div>
     <div id="draftBanner"></div>
     <div class="dash-actions">
       <div class="card">
@@ -1276,7 +1277,29 @@ function renderExamHub(e){
   </div>`;
   show('examhub');
 }
-function showDashboard(){ renderExamPicker(); show("dashboard"); loadStudents(); renderDraftBanner(); }
+function showDashboard(){ renderExamPicker(); show("dashboard"); loadStudents(); renderDraftBanner(); loadOrgCode(); }
+// 학원 공용 가입 코드 표시(학생에게 알려주면 스스로 가입·등록)
+async function loadOrgCode(){
+  const box=document.getElementById("orgCodeBox"); if(!box) return;
+  const orgId = myProfile && myProfile.org_id;
+  if(!orgId){ box.innerHTML=""; return; }
+  try{
+    const { data } = await sb.from("orgs").select("name,join_code").eq("id",orgId).single();
+    if(!data || !data.join_code){ box.innerHTML=""; return; }
+    box.innerHTML=`<div class="card" style="display:flex;align-items:center;gap:12px;flex-wrap:wrap;background:var(--teal-bg);border-color:#99f6e4">
+      <div style="flex:1;min-width:180px">
+        <div style="font-weight:800;color:var(--ink)">🏫 학원 학생 가입 코드</div>
+        <div class="muted" style="font-size:12.5px;margin-top:2px">학생이 회원가입 후 <b>이 코드 + 이름</b>을 입력하면 우리 학원 학생으로 자동 등록됩니다.</div>
+      </div>
+      <div style="font-family:ui-monospace,monospace;font-weight:900;font-size:22px;letter-spacing:3px;color:#0f766e">${esc(data.join_code)}</div>
+      <button class="btn btn-ghost" style="width:auto;padding:8px 14px" onclick="copyOrgCode('${esc(data.join_code)}',this)">복사</button>
+    </div>`;
+  }catch(_e){ box.innerHTML=""; }
+}
+function copyOrgCode(code, btn){
+  try{ navigator.clipboard.writeText(code); if(btn){ const t=btn.textContent; btn.textContent="복사됨 ✓"; setTimeout(()=>btn.textContent=t,1200); } }
+  catch(_e){ if(btn) btn.textContent="복사 실패"; }
+}
 
 // ---------- 작업 임시 저장 (localStorage) ----------
 const DRAFT_KEY = "imsat_draft_v1";
@@ -3620,28 +3643,39 @@ function showOnboarding(session){
   const v=document.getElementById("view-portal"); v.classList.remove("hide");
   v.innerHTML=`<div class="card" style="max-width:400px;margin:48px auto 0">
     <div class="eyebrow" style="justify-content:center;margin-bottom:12px"><span class="rule"></span>학생 등록<span class="rule"></span></div>
-    <p class="muted" style="text-align:center;font-size:13px;margin:0 0 14px">선생님께 받은 <b>초대 코드</b>를 입력하면 내 계정이 연결됩니다.</p>
-    <label class="fld">초대 코드</label>
-    <input id="joinCode" placeholder="예: B9FDA04D" style="text-transform:uppercase;letter-spacing:2px;text-align:center;font-size:16px" />
+    <p class="muted" style="text-align:center;font-size:13px;margin:0 0 14px">선생님(학원)께 받은 <b>가입 코드</b>와 <b>이름</b>을 입력하면 등록됩니다.</p>
+    <label class="fld">이름</label>
+    <input id="joinName" placeholder="예: 김민준" />
+    <label class="fld" style="margin-top:10px">가입 코드</label>
+    <input id="joinCode" placeholder="예: A1B2C3" style="text-transform:uppercase;letter-spacing:2px;text-align:center;font-size:16px" />
     <div id="joinMsg" style="margin-top:10px"></div>
-    <button class="btn btn-primary" style="margin-top:12px" onclick="submitJoinCode()">연결하기</button>
+    <button class="btn btn-primary" style="margin-top:12px" onclick="submitJoinCode()">등록하기</button>
     <button class="btn btn-ghost" style="margin-top:8px" onclick="signOut()">로그아웃</button>
   </div>`;
-  setTimeout(()=>document.getElementById("joinCode")?.focus(),80);
+  setTimeout(()=>document.getElementById("joinName")?.focus(),80);
 }
 async function submitJoinCode(){
   const code=(document.getElementById("joinCode").value||"").trim();
+  const name=(document.getElementById("joinName").value||"").trim();
   const msg=document.getElementById("joinMsg");
-  if(!code){ msg.innerHTML='<div class="err">초대 코드를 입력하세요.</div>'; return; }
-  msg.innerHTML='<div class="muted" style="font-size:13px">연결 중…</div>';
+  if(!name){ msg.innerHTML='<div class="err">이름을 입력하세요.</div>'; return; }
+  if(!code){ msg.innerHTML='<div class="err">가입 코드를 입력하세요.</div>'; return; }
+  msg.innerHTML='<div class="muted" style="font-size:13px">등록 중…</div>';
   try{
-    const { data, error } = await sb.rpc("link_student", { p_code: code });
+    // ① 학원 공용 가입 코드로 스스로 등록
+    let res = await sb.rpc("join_org", { p_code: code, p_name: name });
+    let data = res.data, error = res.error;
+    // ② 실패하면 기존 "학생별 초대 코드"로 연결도 시도(하위호환)
+    if(error || !data || !data.ok){
+      const r2 = await sb.rpc("link_student", { p_code: code });
+      if(!r2.error && r2.data && r2.data.ok){ data=r2.data; error=null; }
+    }
     if(error) throw new Error(error.message);
-    if(!data || !data.ok){ msg.innerHTML='<div class="err">'+esc((data&&data.error)||"연결 실패")+'</div>'; return; }
+    if(!data || !data.ok){ msg.innerHTML='<div class="err">'+esc((data&&data.error)||"등록 실패 — 코드를 확인하세요.")+'</div>'; return; }
     const { data:{ session } } = await sb.auth.getSession();
     myProfile = await fetchProfile(session);
     enterStudentPortal(session);
-  }catch(e){ msg.innerHTML='<div class="err">연결 실패: '+esc(String(e.message||e))+'</div>'; }
+  }catch(e){ msg.innerHTML='<div class="err">등록 실패: '+esc(String(e.message||e))+'</div>'; }
 }
 
 // ---------- 학생 포털 ----------
