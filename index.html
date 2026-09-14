@@ -3805,15 +3805,15 @@ function portalViewResult(token){
 let PR = null;                                   // 현재 연습 상태
 let prSel = { section:'rw', count:5, difficulty:'medium' };
 function examTypeNow(){ try{ return (typeof currentExam!=='undefined' && currentExam) || 'sat'; }catch(_e){ return 'sat'; } }
-// 이 문항 개념으로 칸아카데미 강의(유튜브 검색) 링크 — 항상 작동, 죽은 링크 없음
+// 이 문항 개념으로 칸아카데미 공식 사이트 강의 검색 링크 — 항상 작동, 죽은 링크 없음
 function khanConcept(q){ return String((q&&(q.concept||q.skill))||"").trim(); }
 function khanLink(q){
   const c=khanConcept(q) || "SAT";
-  return "https://www.youtube.com/results?search_query="+encodeURIComponent("Khan Academy "+c);
+  return "https://www.khanacademy.org/search?page_search_query="+encodeURIComponent(c);
 }
 function khanBtn(q, small){
   const c=khanConcept(q); if(!c) return "";
-  return `<a class="kh-link${small?' sm':''}" href="${khanLink(q)}" target="_blank" rel="noopener">📺 개념 강의 (Khan Academy)</a>`;
+  return `<a class="kh-link${small?' sm':''}" href="${khanLink(q)}" target="_blank" rel="noopener">📘 개념 강의 (Khan Academy)</a>`;
 }
 
 async function reloadPortal(){
