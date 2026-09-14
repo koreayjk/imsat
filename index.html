@@ -3705,14 +3705,30 @@ async function enterStudentPortal(session){
       sb.from("assignments").select("*").eq("student_id", st.id).order("created_at",{ascending:false}),
       sb.rpc("my_attempts")   // 지난 응시 결과(제목·토큰 포함)
     ]);
+    const [{ data:asg }, attRes, prRes] = await Promise.all([
+      sb.from("assignments").select("*").eq("student_id", st.id).order("created_at",{ascending:false}),
+      sb.rpc("my_attempts"),   // 지난 응시 결과(제목·토큰 포함)
+      sb.from("practice_sets").select("id,section,kind,title,score,total,created_at").eq("student_id", st.id).order("created_at",{ascending:false}).limit(30)
+    ]);
     const att = (attRes && attRes.data) || [];
-    renderStudentPortal(st, asg||[], att);
+    renderStudentPortal(st, asg||[], att, (prRes&&prRes.data)||[]);
   }catch(e){ v.innerHTML='<div class="exam-card"><div class="err">불러오기 실패: '+esc(String(e.message||e))+'</div></div>'; }
 }
-function renderStudentPortal(st, assignments, attempts){
+function renderStudentPortal(st, assignments, attempts, practices){
+  practices = practices || [];
   const v=document.getElementById("view-portal");
   const doneSets = new Set(attempts.map(a=>a.problem_set_id));
   const secLabel = s=> s==='math'?'Math':'Reading & Writing';
+  // 내 연습 기록(스스로 학습) — 다시 보기
+  const prHtml = practices.length ? practices.map(p=>{
+    const d=p.created_at?new Date(p.created_at).toLocaleDateString("ko-KR",{month:'short',day:'numeric'}):"";
+    const pct=p.total?Math.round((p.score/p.total)*100):0;
+    const kindTag = p.kind==='review'?' <span class="pill" style="background:#eef2ff;color:#4338ca">오답 복습</span>':'';
+    return `<div class="pt-card"><div class="pt-card-main">
+      <div class="pt-title">${esc(p.title||'연습')}${kindTag}</div>
+      <div class="pt-sub">${esc(secLabel(p.section))} · 점수 <b>${p.score}/${p.total}</b> (${pct}%) · ${d}</div></div>
+      <div class="pt-actions"><button class="btn btn-ghost" style="width:auto;padding:8px 14px" onclick="reviewPastPractice('${esc(p.id)}')">다시 보기</button></div></div>`;
+  }).join("") : '<div class="muted" style="padding:16px;text-align:center">아직 스스로 푼 연습이 없어요. 위 “✍️ 문제 풀기”로 시작하세요.</div>';
   // 지난 응시 결과(모든 응시 기록 — 배부 여부 무관)
   const pastHtml = attempts.length ? attempts.map(a=>{
     const d=a.created_at?new Date(a.created_at).toLocaleDateString("ko-KR",{month:'short',day:'numeric'}):"";
@@ -3761,6 +3777,7 @@ function renderStudentPortal(st, assignments, attempts){
         <button class="btn" style="width:auto;padding:10px 18px;background:rgba(255,255,255,.14);color:#fff;border:1px solid rgba(255,255,255,.25)" onclick="renderWrongNotebook()">📕 오답노트 · 기간 복습</button>
       </div>
     </div>
+    <div class="card"><h3 style="margin:0 0 12px">📚 내 연습 기록 <span class="muted" style="font-weight:400;font-size:13px">(스스로 푼 연습 · 다시 보기)</span></h3><div class="pt-list">${prHtml}</div></div>
     <div class="card"><h3 style="margin:0 0 12px">📝 내 시험 <span class="muted" style="font-weight:400;font-size:13px">(선생님이 배부한 시험)</span></h3><div class="pt-list">${asgHtml}</div></div>
     <div class="card"><h3 style="margin:0 0 12px">📊 지난 응시 결과 <span class="muted" style="font-weight:400;font-size:13px">(내가 본 모든 시험)</span></h3><div class="pt-list">${pastHtml}</div></div>
     <div class="card">
@@ -3838,11 +3855,24 @@ async function reloadPortal(){
   v.innerHTML='<div class="loading"><div class="spinner"></div>불러오는 중…</div>';
   try{
     const st=myStudent;
-    const [{ data:asg }, attRes] = await Promise.all([
+    const [{ data:asg }, attRes, prRes] = await Promise.all([
       sb.from("assignments").select("*").eq("student_id", st.id).order("created_at",{ascending:false}),
-      sb.rpc("my_attempts")
+      sb.rpc("my_attempts"),
+      sb.from("practice_sets").select("id,section,kind,title,score,total,created_at").eq("student_id", st.id).order("created_at",{ascending:false}).limit(30)
     ]);
-    renderStudentPortal(st, asg||[], (attRes&&attRes.data)||[]);
+    renderStudentPortal(st, asg||[], (attRes&&attRes.data)||[], (prRes&&prRes.data)||[]);
+  }catch(e){ v.innerHTML='<div class="exam-card"><div class="err">'+esc(String(e.message||e))+'</div></div>'; }
+}
+// 지난 연습 다시 보기 — 저장된 연습을 불러와 리뷰 화면으로
+async function reviewPastPractice(id){
+  const v=document.getElementById("view-portal");
+  v.innerHTML='<div class="loading"><div class="spinner"></div>연습 불러오는 중…</div>';
+  try{
+    const { data } = await sb.from("practice_sets").select("*").eq("id",id).single();
+    if(!data){ reloadPortal(); return; }
+    PR={ section:data.section, difficulty:'medium', kind:data.kind||'practice', title:data.title||'연습',
+      questions:data.questions||[], answers:data.answers||{}, score:data.score||0, total:data.total||(data.questions||[]).length };
+    renderPracticeReview();
   }catch(e){ v.innerHTML='<div class="exam-card"><div class="err">'+esc(String(e.message||e))+'</div></div>'; }
 }
 function prSetSec(k){ prSel.section=k; document.querySelectorAll('#prSecSeg [data-psec]').forEach(b=>b.classList.toggle('on',b.dataset.psec===k)); }
